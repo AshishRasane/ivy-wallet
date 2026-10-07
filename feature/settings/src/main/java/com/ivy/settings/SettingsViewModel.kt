@@ -6,13 +6,26 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.provider.DocumentsContract
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.viewModelScope
+import com.ivy.autobackup.AutoBackupFiles
+import com.ivy.autobackup.AutoBackupNotifier
+import com.ivy.autobackup.AutoBackupResult
+import com.ivy.autobackup.AutoBackupRunner
+import com.ivy.autobackup.AutoBackupScheduler
+import com.ivy.autobackup.AutoBackupSettings
+import com.ivy.autobackup.AutoBackupState
+import com.ivy.autobackup.message
+import com.ivy.base.Toaster
 import com.ivy.base.legacy.SharedPrefs
+import com.ivy.base.time.TimeProvider
 import com.ivy.base.legacy.Theme
 import com.ivy.base.legacy.refreshWidget
 import com.ivy.data.backup.BackupDataUseCase
@@ -39,6 +52,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
 @Stable
@@ -57,6 +72,12 @@ class SettingsViewModel @Inject constructor(
     private val updateSettingsAct: UpdateSettingsAct,
     private val settingsWriter: WriteSettingsDao,
     private val exportCsvUseCase: ExportCsvUseCase,
+    private val autoBackupSettings: AutoBackupSettings,
+    private val autoBackupRunner: AutoBackupRunner,
+    private val autoBackupScheduler: AutoBackupScheduler,
+    private val autoBackupNotifier: AutoBackupNotifier,
+    private val toaster: Toaster,
+    private val timeProvider: TimeProvider,
     @ApplicationContext private val context: Context
 ) : ComposeViewModel<SettingsState, SettingsEvent>() {
 
@@ -70,6 +91,7 @@ class SettingsViewModel @Inject constructor(
     private val treatTransfersAsIncomeExpense = mutableStateOf(false)
     private val startDateOfMonth = mutableIntStateOf(1)
     private val progressState = mutableStateOf(false)
+    private val autoBackupInProgress = mutableStateOf(false)
 
     @Composable
     override fun uiState(): SettingsState {
@@ -88,7 +110,8 @@ class SettingsViewModel @Inject constructor(
             startDateOfMonth = getStartDateOfMonth(),
             progressState = getProgressState(),
             hideIncome = getHideIncome(),
-            languageOptionVisible = isLanguageOptionVisible()
+            languageOptionVisible = isLanguageOptionVisible(),
+            autoBackup = getAutoBackup(),
         )
     }
 
@@ -233,7 +256,97 @@ class SettingsViewModel @Inject constructor(
             SettingsEvent.DeleteCloudUserData -> deleteCloudUserData()
             SettingsEvent.DeleteAllUserData -> deleteAllUserData()
             SettingsEvent.SwitchLanguage -> switchLanguage()
+            is SettingsEvent.SetAutoBackup -> setAutoBackup(event.enabled)
+            is SettingsEvent.AutoBackupFolderSelected -> onAutoBackupFolderSelected(event.folderUri)
+            SettingsEvent.BackupNow -> runAutoBackup(force = true)
         }
+    }
+
+    @Composable
+    private fun getAutoBackup(): AutoBackupViewState {
+        val state = remember { autoBackupSettings.state }.collectAsState(initial = null).value
+        return AutoBackupViewState(
+            enabled = state?.enabled ?: false,
+            hasFolder = state?.folderUri != null,
+            folder = state?.folderUri?.let(::folderDisplayName),
+            status = state?.let(::autoBackupStatus).orEmpty(),
+            inProgress = autoBackupInProgress.value,
+        )
+    }
+
+    private fun folderDisplayName(folderUri: String): String? = runCatching {
+        AutoBackupFiles.folderDisplayName(DocumentsContract.getTreeDocumentId(Uri.parse(folderUri)))
+    }.getOrNull()
+
+    private fun autoBackupStatus(state: AutoBackupState): String {
+        val failure = state.lastFailure
+        val lastSuccess = state.lastSuccessAt
+        return when {
+            failure != null -> "Last backup failed: ${failure.message()}"
+            lastSuccess != null -> "Last backup: ${formatBackupTime(lastSuccess)}"
+            else -> "No backup yet"
+        }
+    }
+
+    private fun formatBackupTime(time: Instant): String {
+        val local = time.atZone(timeProvider.getZoneId()).toLocalDateTime()
+        val today = timeProvider.localDateNow()
+        val day = when (local.toLocalDate()) {
+            today -> "Today"
+            today.minusDays(1) -> "Yesterday"
+            else -> local.format(DateTimeFormatter.ofPattern("d MMM yyyy"))
+        }
+        return "$day, ${local.format(DateTimeFormatter.ofPattern("h:mm a"))}"
+    }
+
+    private fun setAutoBackup(enabled: Boolean) {
+        viewModelScope.launch {
+            autoBackupSettings.setEnabled(enabled)
+            if (enabled) {
+                autoBackupScheduler.schedule()
+                runAutoBackupInternal(force = false)
+            } else {
+                autoBackupScheduler.cancel()
+                autoBackupNotifier.dismissFailure()
+            }
+        }
+    }
+
+    private fun onAutoBackupFolderSelected(folderUri: Uri) {
+        viewModelScope.launch {
+            val previous = autoBackupSettings.current().folderUri?.let(Uri::parse)
+            val accessGranted = runCatching {
+                autoBackupRunner.takeFolderAccess(folderUri, previous)
+            }.isSuccess
+            if (!accessGranted) {
+                toaster.show("Couldn't get access to that folder. Please choose another one.")
+                return@launch
+            }
+            autoBackupSettings.setFolder(folderUri.toString())
+            autoBackupSettings.setEnabled(true)
+            autoBackupScheduler.schedule()
+            runAutoBackupInternal(force = true)
+        }
+    }
+
+    private fun runAutoBackup(force: Boolean) {
+        viewModelScope.launch { runAutoBackupInternal(force) }
+    }
+
+    private suspend fun runAutoBackupInternal(force: Boolean) {
+        if (autoBackupInProgress.value) return
+        autoBackupInProgress.value = true
+        val result = autoBackupRunner.backup(force)
+        autoBackupInProgress.value = false
+
+        if (result !is AutoBackupResult.Failed) autoBackupNotifier.dismissFailure()
+        toaster.show(
+            when (result) {
+                is AutoBackupResult.Saved -> "Backup saved: ${result.fileName}"
+                AutoBackupResult.Unchanged -> "Backup is up to date - no changes since the last one"
+                is AutoBackupResult.Failed -> "Backup failed: ${result.failure.message()}"
+            }
+        )
     }
 
     private fun setCurrency(newCurrency: String) {

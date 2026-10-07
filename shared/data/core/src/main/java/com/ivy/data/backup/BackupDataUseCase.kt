@@ -77,7 +77,16 @@ class BackupDataUseCase @Inject constructor(
     suspend fun exportToFile(
         zipFileUri: Uri
     ) {
-        val jsonString = generateJsonBackup()
+        exportToFile(zipFileUri, jsonString = generateJsonBackup())
+    }
+
+    /**
+     * Writes an already generated [generateJsonBackup] result as a backup zip.
+     */
+    suspend fun exportToFile(
+        zipFileUri: Uri,
+        jsonString: String,
+    ) {
         val file = createJsonDataFile(jsonString)
         zip(context = context, zipFileUri, listOf(file))
         clearCacheDir()

@@ -1,5 +1,7 @@
 package com.ivy.settings
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -82,6 +84,11 @@ fun BoxWithConstraintsScope.SettingsScreen() {
     val viewModel: SettingsViewModel = screenScopedViewModel()
     val uiState = viewModel.uiState()
     val rootScreen = rootScreen()
+    val backupFolderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { folderUri ->
+        folderUri?.let { viewModel.onEvent(SettingsEvent.AutoBackupFolderSelected(it)) }
+    }
 
     UI(
         currencyCode = uiState.currencyCode,
@@ -136,7 +143,18 @@ fun BoxWithConstraintsScope.SettingsScreen() {
         },
         onSwitchLanguage = {
             viewModel.onEvent(SettingsEvent.SwitchLanguage)
-        }
+        },
+        autoBackup = uiState.autoBackup,
+        onSetAutoBackup = { enabled ->
+            if (enabled && !uiState.autoBackup.hasFolder) {
+                // the folder must be chosen first; selecting it turns automatic backup on
+                backupFolderPicker.launch(null)
+            } else {
+                viewModel.onEvent(SettingsEvent.SetAutoBackup(enabled))
+            }
+        },
+        onPickBackupFolder = { backupFolderPicker.launch(null) },
+        onBackupNow = { viewModel.onEvent(SettingsEvent.BackupNow) },
     )
 }
 
@@ -168,7 +186,11 @@ private fun BoxWithConstraintsScope.UI(
     onSetStartDateOfMonth: (Int) -> Unit = {},
     onDeleteAllUserData: () -> Unit = {},
     onDeleteCloudUserData: () -> Unit = {},
-    onSwitchLanguage: () -> Unit = {}
+    onSwitchLanguage: () -> Unit = {},
+    autoBackup: AutoBackupViewState? = null,
+    onSetAutoBackup: (Boolean) -> Unit = {},
+    onPickBackupFolder: () -> Unit = {},
+    onBackupNow: () -> Unit = {},
 ) {
     var currencyModalVisible by remember { mutableStateOf(false) }
     var nameModalVisible by remember { mutableStateOf(false) }
@@ -258,6 +280,17 @@ private fun BoxWithConstraintsScope.UI(
             }
 
             Spacer(Modifier.height(12.dp))
+
+            if (autoBackup != null) {
+                AutoBackupSection(
+                    state = autoBackup,
+                    onSetEnabled = onSetAutoBackup,
+                    onPickFolder = onPickBackupFolder,
+                    onBackupNow = onBackupNow,
+                )
+
+                Spacer(Modifier.height(12.dp))
+            }
 
             SettingsPrimaryButton(
                 icon = R.drawable.ic_export_csv,
@@ -757,6 +790,44 @@ private fun AppThemeButton(
         description = stringResource(R.string.tap_to_switch_theme),
         onClick = onClick
     )
+}
+
+@Composable
+private fun AutoBackupSection(
+    state: AutoBackupViewState,
+    onSetEnabled: (Boolean) -> Unit,
+    onPickFolder: () -> Unit,
+    onBackupNow: () -> Unit,
+) {
+    AppSwitch(
+        lockApp = state.enabled,
+        onSetLockApp = onSetEnabled,
+        text = "Automatic backup",
+        description = "Daily backup to a folder on this phone. Keeps the last 10.",
+        icon = R.drawable.ic_data_synced
+    )
+
+    if (state.enabled || state.hasFolder) {
+        Spacer(Modifier.height(12.dp))
+
+        SettingsDefaultButton(
+            icon = R.drawable.ic_vue_files_folder,
+            text = "Backup folder",
+            description = state.folder ?: "Not selected",
+            iconPadding = 6.dp,
+            onClick = onPickFolder,
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        SettingsDefaultButton(
+            icon = R.drawable.ic_sync,
+            text = if (state.inProgress) "Backing up…" else "Back up now",
+            description = state.status,
+            iconPadding = 6.dp,
+            onClick = { if (!state.inProgress) onBackupNow() },
+        )
+    }
 }
 
 @Composable

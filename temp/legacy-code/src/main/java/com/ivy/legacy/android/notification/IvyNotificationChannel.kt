@@ -27,6 +27,13 @@ enum class IvyNotificationChannel(
         description = "Income and expenses detected in your bank SMS, ready to be added.",
         importance = NotificationManager.IMPORTANCE_HIGH,
         bypassDnd = false
+    ),
+    AUTO_BACKUP(
+        channelId = "auto_backup",
+        channelName = "Automatic backup",
+        description = "Alerts when the daily automatic backup can't be saved.",
+        importance = NotificationManager.IMPORTANCE_DEFAULT,
+        bypassDnd = false
     );
 
     @SuppressLint("WrongConstant")

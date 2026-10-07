@@ -1,5 +1,6 @@
 package com.ivy.settings
 
+import android.net.Uri
 import com.ivy.domain.RootScreen
 
 sealed interface SettingsEvent {
@@ -19,4 +20,7 @@ sealed interface SettingsEvent {
     data object DeleteCloudUserData : SettingsEvent
     data object DeleteAllUserData : SettingsEvent
     data object SwitchLanguage : SettingsEvent
+    data class SetAutoBackup(val enabled: Boolean) : SettingsEvent
+    data class AutoBackupFolderSelected(val folderUri: Uri) : SettingsEvent
+    data object BackupNow : SettingsEvent
 }

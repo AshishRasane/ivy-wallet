@@ -7,6 +7,7 @@ android {
 }
 
 dependencies {
+    implementation(projects.feature.autoBackup)
     implementation(projects.shared.base)
     implementation(projects.shared.data.core)
     implementation(projects.shared.domain)
