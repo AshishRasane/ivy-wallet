@@ -13,4 +13,5 @@ kotlin {
 dependencies {
     implementation(libs.bundles.hilt)
     ksp(catalog.library("hilt-compiler"))
+    ksp(catalog.library("androidx-hilt-compiler"))
 }

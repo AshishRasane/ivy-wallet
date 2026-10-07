@@ -11,9 +11,8 @@ import dagger.hilt.components.SingletonComponent
 /**
  * Daily automatic backup.
  *
- * Dependencies come from a Hilt [EntryPoint] instead of `@HiltWorker` because the project
- * doesn't run the androidx.hilt annotation processor; WorkManager falls back to creating
- * workers with the (Context, WorkerParameters) constructor.
+ * Dependencies come from a Hilt [EntryPoint], so the worker only needs the default
+ * (Context, WorkerParameters) constructor that WorkManager can always instantiate.
  */
 class AutoBackupWorker(
     appContext: Context,
