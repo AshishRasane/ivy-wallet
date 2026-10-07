@@ -1,5 +1,9 @@
 package com.ivy.features
 
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -26,9 +30,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.ivy.design.system.colors.IvyColors.Gray
 import com.ivy.navigation.navigation
 import com.ivy.navigation.screenScopedViewModel
@@ -124,14 +130,53 @@ private fun Content(
                 }
 
                 is FeatureItemViewState.FeatureToggleViewState -> {
-                    FeatureRow(
+                    PermissionAwareFeatureRow(
                         feature = item,
-                        onToggleClick = { onToggleFeature(item.key) }
+                        onToggleFeature = onToggleFeature,
                     )
                 }
             }
         }
     }
+}
+
+/**
+ * Asks for the feature's [FeatureItemViewState.FeatureToggleViewState.requiredPermissions]
+ * before enabling it. Disabling never needs permissions.
+ */
+@Composable
+private fun PermissionAwareFeatureRow(
+    feature: FeatureItemViewState.FeatureToggleViewState,
+    onToggleFeature: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        if (results.values.all { it }) {
+            onToggleFeature(feature.key)
+        } else {
+            Toast.makeText(
+                context,
+                "Permission is required to enable \"${feature.name}\"",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    FeatureRow(
+        feature = feature,
+        onToggleClick = {
+            val missing = feature.requiredPermissions.filter {
+                ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
+            }
+            if (!feature.enabled && missing.isNotEmpty()) {
+                permissionLauncher.launch(missing.toTypedArray())
+            } else {
+                onToggleFeature(feature.key)
+            }
+        }
+    )
 }
 
 @Composable

@@ -1,7 +1,9 @@
 package com.ivy.features
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.lifecycle.viewModelScope
@@ -56,13 +58,25 @@ class FeaturesViewModel @Inject constructor(
                             key = it.key,
                             name = it.name ?: it.key,
                             description = it.description,
-                            enabled = it.asEnabledState()
+                            enabled = it.asEnabledState(),
+                            requiredPermissions = requiredPermissions(it),
                         )
                     }
                 addAll(featuresByGroup)
             }
         }.toImmutableList()
     }
+
+    private fun requiredPermissions(feature: BoolFeature): ImmutableList<String> = when (feature) {
+        features.smsTransactionDetection -> buildList {
+            add(Manifest.permission.RECEIVE_SMS)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+
+        else -> emptyList()
+    }.toImmutableList()
 
     override fun onEvent(event: FeaturesUiEvent) {
         when (event) {

@@ -20,6 +20,13 @@ enum class IvyNotificationChannel(
         description = "Reminding you to record your transactions on a daily basis.",
         importance = NotificationManager.IMPORTANCE_HIGH,
         bypassDnd = false
+    ),
+    SMS_TRANSACTION(
+        channelId = "sms_transaction",
+        channelName = "Transactions from SMS",
+        description = "Income and expenses detected in your bank SMS, ready to be added.",
+        importance = NotificationManager.IMPORTANCE_HIGH,
+        bypassDnd = false
     );
 
     @SuppressLint("WrongConstant")

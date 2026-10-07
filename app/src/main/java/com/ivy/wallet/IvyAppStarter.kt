@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import com.ivy.base.model.TransactionType
 import com.ivy.domain.AppStarter
+import com.ivy.domain.TransactionPrefill
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 
@@ -31,6 +32,24 @@ class IvyAppStarter @Inject constructor(
                 applyWidgetStartFlags()
             }
         )
+    }
+
+    override fun getAddTransactionIntent(
+        type: TransactionType,
+        prefill: TransactionPrefill,
+    ): Intent {
+        return getRootIntent().apply {
+            putExtra(RootViewModel.EXTRA_ADD_TRANSACTION_TYPE, type)
+            prefill.amount?.let { putExtra(RootViewModel.EXTRA_ADD_TRANSACTION_AMOUNT, it) }
+            prefill.title?.let { putExtra(RootViewModel.EXTRA_ADD_TRANSACTION_TITLE, it) }
+            prefill.description?.let {
+                putExtra(RootViewModel.EXTRA_ADD_TRANSACTION_DESCRIPTION, it)
+            }
+            prefill.dateTime?.let {
+                putExtra(RootViewModel.EXTRA_ADD_TRANSACTION_DATE_TIME, it.toEpochMilli())
+            }
+            applyWidgetStartFlags()
+        }
     }
 
     private fun Intent.applyWidgetStartFlags() {

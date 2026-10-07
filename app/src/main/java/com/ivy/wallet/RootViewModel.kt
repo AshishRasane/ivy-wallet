@@ -30,6 +30,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.time.Instant
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 
@@ -47,6 +48,10 @@ class RootViewModel @Inject constructor(
 
     companion object {
         const val EXTRA_ADD_TRANSACTION_TYPE = "add_transaction_type_extra"
+        const val EXTRA_ADD_TRANSACTION_AMOUNT = "add_transaction_amount_extra"
+        const val EXTRA_ADD_TRANSACTION_TITLE = "add_transaction_title_extra"
+        const val EXTRA_ADD_TRANSACTION_DESCRIPTION = "add_transaction_description_extra"
+        const val EXTRA_ADD_TRANSACTION_DATE_TIME = "add_transaction_date_time_extra"
 
         const val USER_INACTIVITY_TIME_LIMIT = 60 // Time in seconds
     }
@@ -117,7 +122,14 @@ class RootViewModel @Inject constructor(
             nav.navigateTo(
                 EditTransactionScreen(
                     initialTransactionId = null,
-                    type = addTrnType
+                    type = addTrnType,
+                    amount = intent.getDoubleExtra(EXTRA_ADD_TRANSACTION_AMOUNT, 0.0)
+                        .takeIf { it > 0.0 },
+                    title = intent.getStringExtra(EXTRA_ADD_TRANSACTION_TITLE),
+                    description = intent.getStringExtra(EXTRA_ADD_TRANSACTION_DESCRIPTION),
+                    dateTime = intent.getLongExtra(EXTRA_ADD_TRANSACTION_DATE_TIME, -1L)
+                        .takeIf { it >= 0 }
+                        ?.let(Instant::ofEpochMilli),
                 )
             )
 

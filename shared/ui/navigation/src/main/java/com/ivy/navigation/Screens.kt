@@ -4,6 +4,7 @@ import com.ivy.base.legacy.Transaction
 import com.ivy.base.model.TransactionType
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import java.time.Instant
 import java.util.UUID
 
 data object MainScreen : Screen {
@@ -23,12 +24,18 @@ data class CSVScreen(
         get() = true
 }
 
+@Suppress("DataClassDefaultValues") // optional extras/prefill
 data class EditTransactionScreen(
     val initialTransactionId: UUID?,
     val type: TransactionType,
     // extras
     val accountId: UUID? = null,
-    val categoryId: UUID? = null
+    val categoryId: UUID? = null,
+    // prefill for new transactions (e.g. detected from a bank SMS)
+    val amount: Double? = null,
+    val title: String? = null,
+    val description: String? = null,
+    val dateTime: Instant? = null,
 ) : Screen {
     override val isLegacy: Boolean
         get() = true

@@ -78,6 +78,14 @@ class IvyFeatures @Inject constructor() : Features {
         defaultValue = false
     )
 
+    override val smsTransactionDetection = BoolFeature(
+        key = "sms_transaction_detection",
+        group = FeatureGroup.Other,
+        name = "Detect transactions from bank SMS",
+        description = "Show a notification for bank SMS (Indian banks) to quickly add the detected income/expense",
+        defaultValue = false
+    )
+
     override val allFeatures: List<BoolFeature>
         get() = listOf(
             sortCategoriesAscending,
@@ -87,7 +95,8 @@ class IvyFeatures @Inject constructor() : Features {
             showCategorySearchBar,
             hideTotalBalance,
             standardKeypadLayout,
-            showAccountColorsInTransactions
+            showAccountColorsInTransactions,
+            smsTransactionDetection,
             /* will be uncommented when this functionality
              * will be available across the application in up-coming PRs
             showDecimalNumber
