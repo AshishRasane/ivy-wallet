@@ -284,7 +284,7 @@ private fun BoxWithConstraintsScope.UI(
             if (autoBackup != null) {
                 AutoBackupSection(
                     state = autoBackup,
-                    onSetEnabled = onSetAutoBackup,
+                    onToggle = onSetAutoBackup,
                     onPickFolder = onPickBackupFolder,
                     onBackupNow = onBackupNow,
                 )
@@ -795,38 +795,41 @@ private fun AppThemeButton(
 @Composable
 private fun AutoBackupSection(
     state: AutoBackupViewState,
-    onSetEnabled: (Boolean) -> Unit,
+    onToggle: (Boolean) -> Unit,
     onPickFolder: () -> Unit,
     onBackupNow: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    AppSwitch(
-        lockApp = state.enabled,
-        onSetLockApp = onSetEnabled,
-        text = "Automatic backup",
-        description = "Daily backup to a folder on this phone. Keeps the last 10.",
-        icon = R.drawable.ic_data_synced
-    )
-
-    if (state.enabled || state.hasFolder) {
-        Spacer(Modifier.height(12.dp))
-
-        SettingsDefaultButton(
-            icon = R.drawable.ic_vue_files_folder,
-            text = "Backup folder",
-            description = state.folder ?: "Not selected",
-            iconPadding = 6.dp,
-            onClick = onPickFolder,
+    Column(modifier = modifier) {
+        AppSwitch(
+            lockApp = state.enabled,
+            onSetLockApp = onToggle,
+            text = "Automatic backup",
+            description = "Daily backup to a folder on this phone. Keeps the last 10.",
+            icon = R.drawable.ic_data_synced
         )
 
-        Spacer(Modifier.height(12.dp))
+        if (state.enabled || state.hasFolder) {
+            Spacer(Modifier.height(12.dp))
 
-        SettingsDefaultButton(
-            icon = R.drawable.ic_sync,
-            text = if (state.inProgress) "Backing up…" else "Back up now",
-            description = state.status,
-            iconPadding = 6.dp,
-            onClick = { if (!state.inProgress) onBackupNow() },
-        )
+            SettingsDefaultButton(
+                icon = R.drawable.ic_vue_files_folder,
+                text = "Backup folder",
+                description = state.folder ?: "Not selected",
+                iconPadding = 6.dp,
+                onClick = onPickFolder,
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsDefaultButton(
+                icon = R.drawable.ic_sync,
+                text = if (state.inProgress) "Backing up…" else "Back up now",
+                description = state.status,
+                iconPadding = 6.dp,
+                onClick = { if (!state.inProgress) onBackupNow() },
+            )
+        }
     }
 }
 

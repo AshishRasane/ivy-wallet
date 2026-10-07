@@ -17,7 +17,7 @@ Run from the repo root (the `scripts/*.sh` wrappers are thin shells around these
 ./gradlew :shared:domain:testDebugUnitTest --tests "*BalanceBuilderTest.some test name*"                  # single test method
 ./gradlew verifyPaparazziDebug               # screenshot tests (recordPaparazziDebug to update golden images)
 ./gradlew :shared:data:core:connectedDebugAndroidTest   # integration tests (need device/emulator); also :shared:domain
-./gradlew detekt                             # lint; baseline at config/detekt/baseline.yml (run it on its own — combined with test tasks the root task fails on build-output inputs)
+./gradlew detekt                             # lint; baseline at config/detekt/baseline.yml (run it on its own — combined with test tasks the root task fails on build-output inputs; judge by the exit code, compose-lint messages span multiple lines)
 ./gradlew detektFormat                       # auto-fix formatting
 ./gradlew lintR                              # Android lint (report: build/reports/lint/lint.html)
 ./gradlew assembleDemo -PcomposeCompilerReports=true && ./gradlew :ci-actions:compose-stability:run   # Compose stability check
