@@ -52,7 +52,9 @@ class AndroidDateTimePicker @Inject constructor(
         modifier: Modifier = Modifier
     ) {
         val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = viewState.initialDate?.toEpochMilli(),
+            initialSelectedDateMillis = viewState.initialDate
+                ?.let { with(timeConverter) { it.toLocalDate() } }
+                ?.let(DatePickerMillis::fromLocalDate),
         )
         DatePickerDialog(
             modifier = modifier,
@@ -60,10 +62,9 @@ class AndroidDateTimePicker @Inject constructor(
             confirmButton = {
                 ConfirmButton(onClick = {
                     datePickerViewState = null
-                    pickerState.selectedDateMillis?.let(Instant::ofEpochMilli)
-                        ?.let {
-                            with(timeConverter) { it.toLocalDate() }
-                    }?.let(viewState.onDatePicked)
+                    pickerState.selectedDateMillis
+                        ?.let(DatePickerMillis::toLocalDate)
+                        ?.let(viewState.onDatePicked)
                 })
             },
             colors = DatePickerDefaults.colors(
