@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.ivy.base.legacy.appContext
+import com.ivy.planned.auto.PlannedAutoAddScheduler
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import timber.log.Timber.DebugTree
@@ -17,6 +18,9 @@ class IvyAndroidApp : Application(), Configuration.Provider {
     @Inject
     lateinit var workerFactory: HiltWorkerFactory
 
+    @Inject
+    lateinit var plannedAutoAddScheduler: PlannedAutoAddScheduler
+
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
@@ -29,5 +33,8 @@ class IvyAndroidApp : Application(), Configuration.Provider {
         if (BuildConfig.DEBUG) {
             Timber.plant(DebugTree())
         }
+
+        // records planned payments marked "Add automatically" (e.g. daily SIPs) that became due
+        plannedAutoAddScheduler.schedule()
     }
 }

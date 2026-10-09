@@ -7,6 +7,7 @@ import com.ivy.data.model.IntervalType
 import java.time.Instant
 import java.util.UUID
 
+@Suppress("DataClassDefaultValues", "DataClassTypedIDs") // legacy model: optional fields, UUID ids
 @Deprecated("Legacy data model. Will be deleted")
 @Immutable
 data class PlannedPaymentRule(
@@ -21,6 +22,10 @@ data class PlannedPaymentRule(
     val categoryId: UUID? = null,
     val title: String? = null,
     val description: String? = null,
+    /** For a planned transfer: the account the money goes to. */
+    val toAccountId: UUID? = null,
+    /** Recorded automatically on each due date. */
+    val autoAdd: Boolean = false,
 
     val isSynced: Boolean = false,
     val isDeleted: Boolean = false,
@@ -38,6 +43,8 @@ data class PlannedPaymentRule(
         categoryId = categoryId,
         title = title,
         description = description,
+        toAccountId = toAccountId,
+        autoAdd = autoAdd,
         isSynced = isSynced,
         isDeleted = isDeleted,
         id = id

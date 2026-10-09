@@ -1,32 +1,46 @@
 package com.ivy.planned.edit
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ivy.base.model.TransactionType
 import com.ivy.data.model.Category
 import com.ivy.data.model.IntervalType
+import com.ivy.design.revamp.RevampType
+import com.ivy.design.revamp.revampColors
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.datamodel.Account
 import com.ivy.legacy.utils.onScreenStart
@@ -186,6 +200,15 @@ private fun BoxWithConstraintsScope.UI(
 
         Spacer(Modifier.height(12.dp))
 
+        if (!state.oneTime) {
+            AutoAddSwitch(
+                checked = state.autoAdd,
+                onCheckedChange = { onEvent(EditPlannedScreenEvent.OnAutoAddChanged(it)) },
+            )
+
+            Spacer(Modifier.height(12.dp))
+        }
+
         Description(
             description = state.description,
             onAddDescription = { onEvent(EditPlannedScreenEvent.OnDescriptionModalVisible(true)) },
@@ -222,7 +245,7 @@ private fun BoxWithConstraintsScope.UI(
         type = state.transactionType,
         accounts = state.accounts,
         selectedAccount = state.account,
-        toAccount = null,
+        toAccount = state.toAccount,
         amount = state.amount,
         currency = state.currency,
 
@@ -270,7 +293,7 @@ private fun BoxWithConstraintsScope.UI(
             }
         },
         onSelectedAccountChanged = { onEvent(EditPlannedScreenEvent.OnAccountChanged(it)) },
-        onToAccountChanged = { },
+        onToAccountChanged = { onEvent(EditPlannedScreenEvent.OnToAccountChanged(it)) },
         onAddNewAccount = {
             onEvent(
                 EditPlannedScreenEvent.OnAccountModalDataChanged(
@@ -355,7 +378,7 @@ private fun BoxWithConstraintsScope.UI(
     ChangeTransactionTypeModal(
         title = stringResource(R.string.set_payment_type),
         visible = state.transactionTypeModalVisible,
-        includeTransferType = false,
+        includeTransferType = true,
         initialType = state.transactionType,
         dismiss = {
             onEvent(EditPlannedScreenEvent.OnTransactionTypeModalVisible(false))
@@ -393,6 +416,42 @@ private fun BoxWithConstraintsScope.UI(
             onEvent(EditPlannedScreenEvent.OnRecurringRuleModalDataChanged(null))
         }
     )
+}
+
+/** Records each due payment on its date, e.g. a SIP debited automatically every day. */
+@Composable
+private fun AutoAddSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    val colors = revampColors()
+    Row(
+        modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(colors.surface)
+            .clickable(role = Role.Switch) { onCheckedChange(!checked) }
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = "Add automatically", style = RevampType.bodyStrong, color = colors.ink)
+            Text(
+                text = "Recorded on each due date without tapping Pay (e.g. a SIP)",
+                style = RevampType.label,
+                color = colors.inkMuted,
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = colors.onPrimary,
+                checkedTrackColor = colors.primary,
+                uncheckedThumbColor = colors.inkMuted,
+                uncheckedTrackColor = colors.ground,
+                uncheckedBorderColor = colors.border,
+            ),
+        )
+    }
 }
 
 private fun shouldFocusCategory(
@@ -438,6 +497,8 @@ private fun Preview() {
                 description = null,
                 category = null,
                 account = Account(name = "phyre", Orange.toArgb()),
+                toAccount = null,
+                autoAdd = false,
                 amount = 0.0,
                 transactionType = TransactionType.INCOME,
                 categories = persistentListOf(),

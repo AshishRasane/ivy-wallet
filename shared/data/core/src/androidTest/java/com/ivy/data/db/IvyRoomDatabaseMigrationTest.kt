@@ -9,6 +9,7 @@ import com.ivy.data.db.migration.Migration123to124_LoanIncludeDateTime
 import com.ivy.data.db.migration.Migration124to125_LoanEditDateTime
 import com.ivy.data.db.migration.Migration126to127_LoanRecordType
 import com.ivy.data.db.migration.Migration129to130_LoanIncludeNote
+import com.ivy.data.db.migration.Migration131to132_PlannedTransfers
 import com.ivy.data.model.LoanType
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
@@ -26,6 +27,34 @@ class IvyRoomDatabaseMigrationTest {
         listOf(IvyRoomDatabase.DeleteSEMigration()),
         FrameworkSQLiteOpenHelperFactory()
     )
+
+    @Test
+    fun migrate131to132_PlannedTransfers() {
+        // Given - a planned expense saved before planned transfers existed
+        val accountId = UUID.randomUUID().toString()
+        helper.createDatabase(TestDb, 131).apply {
+            execSQL(
+                "INSERT INTO planned_payment_rules (startDate, intervalN, intervalType, oneTime, type, " +
+                    "accountId, amount, categoryId, title, description, isSynced, isDeleted, id) " +
+                    "VALUES (0, 1, 'MONTH', 0, 'EXPENSE', '$accountId', 499.0, NULL, 'Netflix', NULL, 0, 0, " +
+                    "'${UUID.randomUUID()}')"
+            )
+            close()
+        }
+
+        // When
+        val newDb = helper.runMigrationsAndValidate(TestDb, 132, true, Migration131to132_PlannedTransfers())
+
+        // Then - kept as it was: no "to" account, not added automatically
+        newDb.query("SELECT title, amount, toAccountId, autoAdd FROM planned_payment_rules").apply {
+            moveToFirst() shouldBe true
+            getString(0) shouldBe "Netflix"
+            getDouble(1) shouldBe 499.0
+            isNull(2) shouldBe true
+            getInt(3) shouldBe 0
+        }
+        newDb.close()
+    }
 
     @Test
     fun migrate129to130_LoanIncludeNote() {

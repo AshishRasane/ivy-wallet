@@ -24,6 +24,10 @@ data class EditPlannedScreenState(
     val categories: ImmutableList<Category>,
     val accounts: ImmutableList<Account>,
     val account: Account?,
+    /** For a transfer: the account the money goes to. */
+    val toAccount: Account?,
+    /** Recorded automatically on each due date. */
+    val autoAdd: Boolean,
     val category: Category?,
     val amount: Double,
     val categoryModalVisible: Boolean,

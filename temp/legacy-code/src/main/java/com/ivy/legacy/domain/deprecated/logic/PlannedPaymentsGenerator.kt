@@ -85,7 +85,9 @@ class PlannedPaymentsGenerator @Inject constructor(
             description = rule.description,
             dueDate = dueDate,
             dateTime = null,
-            toAccountId = null,
+            toAccountId = rule.toAccountId,
+            // same currency: planned transfers between currencies aren't supported
+            toAmount = rule.amount.toBigDecimal(),
             isSynced = false
         ).toDomain(transactionMapper)?.let {
             transactionRepository.save(it)

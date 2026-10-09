@@ -1,6 +1,7 @@
 package com.ivy.data.db.entity
 
 import androidx.annotation.Keep
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import com.ivy.base.kotlinxserilzation.KSerializerInstant
@@ -40,6 +41,14 @@ data class PlannedPaymentRuleEntity(
     val title: String? = null,
     @SerialName("description")
     val description: String? = null,
+    /** For a planned transfer: the account the money goes to. */
+    @SerialName("toAccountId")
+    @Serializable(with = KSerializerUUID::class)
+    val toAccountId: UUID? = null,
+    /** Record each due payment automatically on its date, without the user tapping "Pay". */
+    @SerialName("autoAdd")
+    @ColumnInfo(defaultValue = "0")
+    val autoAdd: Boolean = false,
 
     @Deprecated("Obsolete field used for cloud sync. Can't be deleted because of backwards compatibility")
     @SerialName("isSynced")

@@ -28,6 +28,7 @@ import com.ivy.navigation.Navigation
 import com.ivy.ui.ComposeViewModel
 import com.ivy.wallet.domain.action.account.AccountsAct
 import com.ivy.wallet.domain.deprecated.logic.CategoryCreator
+import com.ivy.wallet.domain.deprecated.logic.PlannedAutoAdd
 import com.ivy.wallet.domain.deprecated.logic.PlannedPaymentsGenerator
 import com.ivy.wallet.domain.deprecated.logic.model.CreateAccountData
 import com.ivy.wallet.domain.deprecated.logic.model.CreateCategoryData
@@ -51,6 +52,7 @@ class EditPlannedViewModel @Inject constructor(
     private val nav: Navigation,
     private val plannedPaymentRuleDao: PlannedPaymentRuleDao,
     private val plannedPaymentsGenerator: PlannedPaymentsGenerator,
+    private val plannedAutoAdd: PlannedAutoAdd,
     private val categoryCreator: CategoryCreator,
     private val accountCreator: AccountCreator,
     private val accountsAct: AccountsAct,
@@ -67,6 +69,8 @@ class EditPlannedViewModel @Inject constructor(
     private var initialTitle by mutableStateOf<String?>(null)
     private var description by mutableStateOf<String?>(null)
     private var account by mutableStateOf<Account?>(null)
+    private var toAccount by mutableStateOf<Account?>(null)
+    private var autoAdd by mutableStateOf(false)
     private var category by mutableStateOf<Category?>(null)
     private var amount by mutableDoubleStateOf(0.0)
     private var currency by mutableStateOf("")
@@ -96,6 +100,8 @@ class EditPlannedViewModel @Inject constructor(
             intervalN = getIntervalN(),
             oneTime = getOneTime(),
             account = getAccount(),
+            toAccount = toAccount,
+            autoAdd = autoAdd,
             category = getCategory(),
             amount = getAmount(),
             initialTitle = getInitialTitle(),
@@ -230,6 +236,16 @@ class EditPlannedViewModel @Inject constructor(
             is EditPlannedScreenEvent.OnCreateAccount -> createAccount(event.data)
             is EditPlannedScreenEvent.OnCreateCategory -> createCategory(event.data)
             is EditPlannedScreenEvent.OnAccountChanged -> updateAccount(event.newAccount)
+            is EditPlannedScreenEvent.OnToAccountChanged -> {
+                toAccount = event.newAccount
+                loadedRule = loadedRule().copy(toAccountId = event.newAccount.id)
+                saveIfEditMode()
+            }
+            is EditPlannedScreenEvent.OnAutoAddChanged -> {
+                autoAdd = event.autoAdd
+                loadedRule = loadedRule().copy(autoAdd = event.autoAdd)
+                saveIfEditMode()
+            }
             is EditPlannedScreenEvent.OnAmountChanged -> updateAmount(event.newAmount)
             is EditPlannedScreenEvent.OnTitleChanged -> updateTitle(event.newTitle)
             is EditPlannedScreenEvent.OnRuleChanged ->
@@ -309,6 +325,8 @@ class EditPlannedViewModel @Inject constructor(
         description = rule.description
         val selectedAccount = ioThread { accountDao.findById(rule.accountId)!!.toLegacyDomain() }
         account = selectedAccount
+        toAccount = rule.toAccountId?.let { id -> ioThread { accountDao.findById(id)?.toLegacyDomain() } }
+        autoAdd = rule.autoAdd
         category = rule.categoryId?.let {
             ioThread { categoryRepository.findById(CategoryId(it)) }
         }
@@ -421,8 +439,10 @@ class EditPlannedViewModel @Inject constructor(
                             ?: error("no startDate"),
                         intervalN = intervalN ?: error("no intervalN"),
                         intervalType = intervalType ?: error("no intervalType"),
-                        categoryId = category?.id?.value,
+                        categoryId = category?.id?.value.takeIf { transactionType != TransactionType.TRANSFER },
                         accountId = account?.id ?: error("no accountId"),
+                        toAccountId = toAccount?.id.takeIf { transactionType == TransactionType.TRANSFER },
+                        autoAdd = autoAdd,
                         title = title?.trim(),
                         description = description?.trim(),
                         amount = amount ?: error("no amount"),
@@ -431,7 +451,12 @@ class EditPlannedViewModel @Inject constructor(
                     )
 
                     plannedPaymentRuleWriter.save(loadedRule().toEntity())
-                    plannedPaymentsGenerator.generate(loadedRule())
+                    if (loadedRule().autoAdd && !loadedRule().oneTime) {
+                        // recorded on their dates, nothing planned ahead
+                        plannedAutoAdd.addDue(loadedRule())
+                    } else {
+                        plannedPaymentsGenerator.generate(loadedRule())
+                    }
                 }
 
                 if (closeScreen) {
@@ -445,7 +470,10 @@ class EditPlannedViewModel @Inject constructor(
 
     private fun validate(): Boolean {
         if (transactionType == TransactionType.TRANSFER) {
-            return false
+            val to = toAccount ?: return false
+            if (to.id == account?.id) return false
+            // a planned transfer moves the same amount: both accounts must use one currency
+            if ((to.currency ?: currency) != currency) return false
         }
 
         if (amount == 0.0) {
