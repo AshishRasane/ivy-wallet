@@ -6,6 +6,7 @@ import com.ivy.base.model.TransactionType
 import com.ivy.domain.AppStarter
 import com.ivy.domain.TransactionPrefill
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.util.UUID
 import javax.inject.Inject
 
 class IvyAppStarter @Inject constructor(
@@ -57,6 +58,17 @@ class IvyAppStarter @Inject constructor(
             prefill.smsTransactionId?.let {
                 putExtra(RootViewModel.EXTRA_ADD_TRANSACTION_SMS_ID, it.toString())
             }
+            applyWidgetStartFlags()
+        }
+    }
+
+    override fun getEditTransactionIntent(
+        transactionId: UUID,
+        type: TransactionType,
+    ): Intent {
+        return getRootIntent().apply {
+            putExtra(RootViewModel.EXTRA_ADD_TRANSACTION_TYPE, type)
+            putExtra(RootViewModel.EXTRA_EDIT_TRANSACTION_ID, transactionId.toString())
             applyWidgetStartFlags()
         }
     }

@@ -7,6 +7,7 @@ import androidx.core.app.NotificationCompat
 import com.ivy.base.model.TransactionType
 import com.ivy.data.db.entity.SmsTransactionEntity
 import com.ivy.domain.AppStarter
+import com.ivy.smstransactions.store.QuickAdded
 import com.ivy.smstransactions.store.RecordedSmsTransaction
 import com.ivy.smstransactions.store.SmsSuggestion
 import com.ivy.smstransactions.store.toPrefill
@@ -60,6 +61,45 @@ class SmsTransactionNotifier @Inject constructor(
                 )
             )
 
+        if (suggestion.isComplete) {
+            notification.addAction(
+                0,
+                "Add",
+                PendingIntent.getBroadcast(
+                    context,
+                    notificationId,
+                    Intent(context, QuickAddSmsTransactionReceiver::class.java)
+                        .putExtra(QuickAddSmsTransactionReceiver.EXTRA_SMS_TRANSACTION_ID, trn.id.toString()),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            )
+        }
+
+        notificationService.showNotification(notification, notificationId)
+    }
+
+    /** Replaces the SMS notification with a confirmation; tapping it opens the saved transaction. */
+    fun showSaved(added: QuickAdded) {
+        val trn = added.sms
+        val notificationId = notificationId(trn.id)
+        val notification = notificationService
+            .defaultIvyNotification(
+                channel = IvyNotificationChannel.SMS_TRANSACTION,
+                priority = NotificationCompat.PRIORITY_LOW
+            )
+            .setContentTitle(listOfNotNull("Saved ${formatInr(trn.amount)}", trn.counterparty).joinToString(" · "))
+            .setContentText(
+                (listOfNotNull(added.suggestion.accountName, added.suggestion.categoryName) + "Tap to edit")
+                    .joinToString(" · ")
+            )
+            .setContentIntent(
+                PendingIntent.getActivity(
+                    context,
+                    notificationId,
+                    appStarter.getEditTransactionIntent(added.transaction.id.value, trn.type),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+            )
         notificationService.showNotification(notification, notificationId)
     }
 

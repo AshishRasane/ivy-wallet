@@ -56,6 +56,7 @@ class RootViewModel @Inject constructor(
         const val EXTRA_ADD_TRANSACTION_ACCOUNT_ID = "add_transaction_account_id_extra"
         const val EXTRA_ADD_TRANSACTION_CATEGORY_ID = "add_transaction_category_id_extra"
         const val EXTRA_ADD_TRANSACTION_SMS_ID = "add_transaction_sms_id_extra"
+        const val EXTRA_EDIT_TRANSACTION_ID = "edit_transaction_id_extra"
 
         const val USER_INACTIVITY_TIME_LIMIT = 60 // Time in seconds
     }
@@ -125,7 +126,7 @@ class RootViewModel @Inject constructor(
         if (addTrnType != null) {
             nav.navigateTo(
                 EditTransactionScreen(
-                    initialTransactionId = null,
+                    initialTransactionId = intent.uuidExtra(EXTRA_EDIT_TRANSACTION_ID),
                     type = addTrnType,
                     amount = intent.getDoubleExtra(EXTRA_ADD_TRANSACTION_AMOUNT, 0.0)
                         .takeIf { it > 0.0 },

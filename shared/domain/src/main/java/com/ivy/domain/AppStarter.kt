@@ -21,6 +21,12 @@ interface AppStarter {
         type: TransactionType,
         prefill: TransactionPrefill,
     ): Intent
+
+    /** @return an intent that opens an existing transaction for editing. */
+    fun getEditTransactionIntent(
+        transactionId: UUID,
+        type: TransactionType,
+    ): Intent
 }
 
 @Suppress("DataClassDefaultValues", "DataClassTypedIDs") // optional fields; legacy UUID ids
