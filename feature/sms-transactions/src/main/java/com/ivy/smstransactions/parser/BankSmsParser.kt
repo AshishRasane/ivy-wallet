@@ -13,7 +13,7 @@ import javax.inject.Inject
 /**
  * Detects completed income/expense transactions in Indian bank SMS
  * (bank accounts, debit/credit cards, UPI and wallets). Money sent to the user's own
- * accounts elsewhere (credit card bills) is a transfer.
+ * accounts elsewhere (credit card bills, investment apps) is a transfer.
  *
  * Pure and stateless: it doesn't touch Android APIs, so it's fully unit-testable.
  */
@@ -34,7 +34,7 @@ class BankSmsParser @Inject constructor() {
         val amount = ensureNotNull(detectAmount(text)) { SmsSkipReason.NotATransaction }
 
         SmsTransaction(
-            type = if (direction == TransactionType.EXPENSE && isCardBillPayment(text)) {
+            type = if (direction == TransactionType.EXPENSE && isToOwnAccount(text)) {
                 TransactionType.TRANSFER
             } else {
                 direction
@@ -60,6 +60,9 @@ class BankSmsParser @Inject constructor() {
 
     private fun isCreditCardBillPayment(text: String): Boolean =
         text.contains("credit card", ignoreCase = true) && CARD_PAYMENT_RECEIVED.containsMatchIn(text)
+
+    /** Money sent to the user's own card or investment account isn't spending. */
+    private fun isToOwnAccount(text: String): Boolean = isCardBillPayment(text) || InvestmentPayees.matches(text)
 
     /** Paying a credit card bill (e.g. via CRED) moves money to the card account; it isn't spending. */
     private fun isCardBillPayment(text: String): Boolean =

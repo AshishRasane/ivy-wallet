@@ -18,6 +18,8 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import com.ivy.design.revamp.AmountFormat
@@ -215,6 +217,8 @@ fun BoxWithConstraintsScope.TransactionsScreen(screen: TransactionsScreen) {
         },
         choosePeriodModal = uiState.choosePeriodModal,
         lastBillPaymentAccountId = uiState.lastBillPaymentAccountId,
+        isInvestment = uiState.isInvestment,
+        onSetInvestment = { viewModel.onEvent(TransactionsEvent.SetInvestment(it)) },
     )
 }
 
@@ -246,6 +250,8 @@ private fun BoxWithConstraintsScope.UI(
     historyGroups: ImmutableList<TransactionDayGroupUi>,
     shouldShowAccountSpecificColorInTransactions: Boolean,
     lastBillPaymentAccountId: AccountId?,
+    isInvestment: Boolean?,
+    onSetInvestment: (Boolean) -> Unit,
 
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
@@ -388,6 +394,8 @@ private fun BoxWithConstraintsScope.UI(
                         )
                     )
                 },
+                isInvestment = isInvestment,
+                onSetInvestment = onSetInvestment,
                 onIncomeClick = { openPieChart(TransactionType.INCOME) },
                 onExpensesClick = { openPieChart(TransactionType.EXPENSE) },
                 onAdd = { type ->
@@ -597,6 +605,9 @@ private fun SummaryCard(
     /** "₹6,046.00" to pay off, or null when the account isn't in debt */
     payBill: String?,
     onPayBill: () -> Unit,
+    /** null hides the switch (not an account) */
+    isInvestment: Boolean?,
+    onSetInvestment: (Boolean) -> Unit,
     onIncomeClick: () -> Unit,
     onExpensesClick: () -> Unit,
     onAdd: (TransactionType) -> Unit,
@@ -661,6 +672,9 @@ private fun SummaryCard(
         if (payBill != null) {
             PayBillButton(amount = payBill, onClick = onPayBill)
         }
+        if (isInvestment != null) {
+            InvestmentSwitch(checked = isInvestment, onCheckedChange = onSetInvestment)
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             AddButton(modifier = Modifier.weight(1f), label = "Add expense") { onAdd(TransactionType.EXPENSE) }
             AddButton(modifier = Modifier.weight(1f), label = "Add income") { onAdd(TransactionType.INCOME) }
@@ -707,6 +721,37 @@ private fun AddButton(label: String, modifier: Modifier = Modifier, onClick: () 
         Icon(Icons.Filled.Add, contentDescription = null, tint = colors.onPrimaryTint, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(6.dp))
         Text(text = label, style = RevampType.body, color = colors.onPrimaryTint)
+    }
+}
+
+@Composable
+private fun InvestmentSwitch(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    val colors = revampColors()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Switch) { onCheckedChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = "Count as investment", style = RevampType.body, color = colors.ink)
+            Text(
+                text = "Money moved here is \"Invested\", not spent",
+                style = RevampType.label,
+                color = colors.inkMuted,
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = colors.onPrimary,
+                checkedTrackColor = colors.primary,
+                uncheckedThumbColor = colors.inkMuted,
+                uncheckedTrackColor = colors.ground,
+                uncheckedBorderColor = colors.border,
+            ),
+        )
     }
 }
 
@@ -801,6 +846,8 @@ private fun BoxWithConstraintsScope.Preview_empty() {
             screen = TransactionsScreen(),
             shouldShowAccountSpecificColorInTransactions = false,
             lastBillPaymentAccountId = null,
+            isInvestment = false,
+            onSetInvestment = {},
         )
     }
 }
@@ -849,6 +896,8 @@ private fun BoxWithConstraintsScope.Preview_crypto() {
             screen = TransactionsScreen(),
             shouldShowAccountSpecificColorInTransactions = false,
             lastBillPaymentAccountId = null,
+            isInvestment = false,
+            onSetInvestment = {},
         )
     }
 }
@@ -926,6 +975,8 @@ private fun BoxWithConstraintsScope.Preview_empty_upcoming() {
             screen = TransactionsScreen(),
             shouldShowAccountSpecificColorInTransactions = false,
             lastBillPaymentAccountId = null,
+            isInvestment = false,
+            onSetInvestment = {},
         )
     }
 }

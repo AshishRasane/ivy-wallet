@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.ArrowOutward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.MarkChatUnread
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SouthWest
 import androidx.compose.material3.Icon
@@ -83,6 +84,7 @@ import com.ivy.wallet.domain.pure.data.IncomeExpensePair
 import com.ivy.wallet.ui.theme.modal.ChoosePeriodModal
 import com.ivy.wallet.ui.theme.modal.ChoosePeriodModalData
 import com.ivy.wallet.ui.theme.modal.DeleteModal
+import kotlin.math.abs
 import kotlinx.collections.immutable.persistentListOf
 import java.math.BigDecimal
 
@@ -150,14 +152,19 @@ fun BoxWithConstraintsScope.HomeUi(
             )
         }
         item {
+            // three tiles are narrow: whole rupees only
+            val decimals = uiState.invested == null
             IncomeExpenseTiles(
                 income = if (uiState.hideIncome) {
                     null
                 } else {
-                    AmountFormat.format(uiState.stats.income.toDouble(), currency)
+                    AmountFormat.format(uiState.stats.income.toDouble(), currency, showDecimals = decimals)
                 },
-                expenses = AmountFormat.format(uiState.stats.expense.toDouble(), currency),
+                expenses = AmountFormat.format(uiState.stats.expense.toDouble(), currency, showDecimals = decimals),
+                invested = uiState.invested?.let { AmountFormat.format(abs(it), currency, showDecimals = false) },
+                withdrawn = (uiState.invested ?: 0.0) < 0.0,
                 onHiddenIncomeClick = { onEvent(HomeEvent.HiddenIncomeClick) },
+                onInvestedClick = { onEvent(HomeEvent.OpenInvested) },
             )
         }
         if (uiState.pendingSmsCount > 0) {
@@ -334,12 +341,16 @@ private fun IncomeExpenseTiles(
     /** Null when income is hidden. */
     income: String?,
     expenses: String,
+    /** Null hides the tile (no investment accounts). */
+    invested: String?,
+    withdrawn: Boolean,
     onHiddenIncomeClick: () -> Unit,
+    onInvestedClick: () -> Unit,
 ) {
     val colors = revampColors()
     Row(
         modifier = Modifier.padding(horizontal = ScreenPadding),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (invested == null) 12.dp else 8.dp),
     ) {
         AmountTile(
             modifier = Modifier
@@ -350,6 +361,7 @@ private fun IncomeExpenseTiles(
             amount = income ?: HiddenAmount,
             accent = colors.income,
             accentTint = colors.incomeTint,
+            compact = invested != null,
         )
         AmountTile(
             modifier = Modifier.weight(1f),
@@ -358,7 +370,21 @@ private fun IncomeExpenseTiles(
             amount = expenses,
             accent = colors.expense,
             accentTint = colors.expenseTint,
+            compact = invested != null,
         )
+        if (invested != null) {
+            AmountTile(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(role = Role.Button, onClickLabel = "Investments report", onClick = onInvestedClick),
+                icon = Icons.Filled.Savings,
+                label = if (withdrawn) "Withdrawn" else "Invested",
+                amount = invested,
+                accent = colors.onPrimaryTint,
+                accentTint = colors.primaryTint,
+                compact = true,
+            )
+        }
     }
 }
 
@@ -371,27 +397,33 @@ private fun AmountTile(
     accent: Color,
     accentTint: Color,
     modifier: Modifier = Modifier,
+    /** Three tiles in a row: no icon, so the label fits on one line. */
+    compact: Boolean = false,
 ) {
     val colors = revampColors()
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(18.dp))
             .background(colors.surface)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = if (compact) 12.dp else 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(22.dp)
-                    .clip(CircleShape)
-                    .background(accentTint),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(14.dp))
+        if (compact) {
+            Text(text = label, style = RevampType.label, color = accent, maxLines = 1)
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(22.dp)
+                        .clip(CircleShape)
+                        .background(accentTint),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(14.dp))
+                }
+                Spacer(Modifier.width(6.dp))
+                Text(text = label, style = RevampType.label, color = accent)
             }
-            Spacer(Modifier.width(6.dp))
-            Text(text = label, style = RevampType.label, color = accent)
         }
         Text(text = amount, style = RevampType.amount, color = colors.ink, maxLines = 1)
     }
@@ -558,6 +590,7 @@ private fun BoxWithConstraintsScope.PreviewHomeTab(isDark: Boolean = false) {
                 shouldShowAccountSpecificColorInTransactions = false,
                 pendingSmsCount = 2,
                 recent = persistentListOf(),
+                invested = 26000.0,
             ),
             onEvent = {}
         )

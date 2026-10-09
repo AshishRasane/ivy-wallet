@@ -13,5 +13,6 @@ sealed interface PieChartStatisticEvent {
     data class OnSetPeriod(val timePeriod: TimePeriod) : PieChartStatisticEvent
     data class OnCategoryClicked(val category: Category?) : PieChartStatisticEvent
     data class OnTypeChanged(val type: TransactionType) : PieChartStatisticEvent
+    data object OnInvestedSelected : PieChartStatisticEvent
     data class OnShowMonthModal(val timePeriod: TimePeriod?) : PieChartStatisticEvent
 }

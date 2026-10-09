@@ -10,7 +10,8 @@ import java.time.LocalTime
 data class SmsTransaction(
     /**
      * [TransactionType.INCOME], [TransactionType.EXPENSE], or [TransactionType.TRANSFER] for money
-     * sent to the user's own account elsewhere (a credit card bill).
+     * sent to the user's own account elsewhere (a credit card bill, an investment app).
+     * Money coming back from an investment app stays INCOME here; the store suggests it as a transfer.
      */
     val type: TransactionType,
     val amount: Double,

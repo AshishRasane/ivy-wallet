@@ -13,12 +13,19 @@ import com.ivy.base.legacy.Transaction
 import com.ivy.base.model.TransactionType
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
+import com.ivy.data.datasource.InvestmentAccountsDataSource
 import com.ivy.data.db.dao.read.SettingsDao
 import com.ivy.data.model.Category
+import com.ivy.data.model.Transaction as DomainTransaction
+import com.ivy.data.model.Transfer
+import com.ivy.data.repository.AccountRepository
+import com.ivy.data.repository.TransactionRepository
+import com.ivy.domain.usecase.investments.NetInvested
 import com.ivy.legacy.IvyWalletCtx
 import com.ivy.legacy.data.model.FromToTimeRange
 import com.ivy.legacy.data.model.Month
 import com.ivy.legacy.data.model.TimePeriod
+import com.ivy.legacy.data.model.toUTCCloseTimeRange
 import com.ivy.legacy.utils.dateNowUTC
 import com.ivy.legacy.utils.ioThread
 import com.ivy.navigation.PieChartStatisticScreen
@@ -46,6 +53,9 @@ class PieChartStatisticViewModel @Inject constructor(
     private val sharedPrefs: SharedPrefs,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
+    private val transactionRepository: TransactionRepository,
+    private val accountRepository: AccountRepository,
+    private val investmentAccounts: InvestmentAccountsDataSource,
 ) : ComposeViewModel<PieChartStatisticState, PieChartStatisticEvent>() {
 
     private var treatTransfersAsIncomeExpense by mutableStateOf(false)
@@ -64,6 +74,8 @@ class PieChartStatisticViewModel @Inject constructor(
     private var trendAverage by mutableStateOf<String?>(null)
     private var comparison by mutableStateOf<String?>(null)
     private var transactionCount by mutableIntStateOf(0)
+    private var invested by mutableStateOf(false)
+    private var investedAccounts by mutableStateOf<ImmutableList<InvestedAccount>>(persistentListOf())
 
     @Composable
     override fun uiState(): PieChartStatisticState {
@@ -83,6 +95,8 @@ class PieChartStatisticViewModel @Inject constructor(
             trendAverage = trendAverage,
             comparison = comparison,
             transactionCount = transactionCount,
+            invested = invested,
+            investedAccounts = investedAccounts,
         )
     }
 
@@ -152,6 +166,11 @@ class PieChartStatisticViewModel @Inject constructor(
                 is PieChartStatisticEvent.OnStart -> start(event.screen)
                 is PieChartStatisticEvent.OnTypeChanged -> {
                     transactionType = event.type
+                    invested = false
+                    load(periodValue = period)
+                }
+                PieChartStatisticEvent.OnInvestedSelected -> {
+                    invested = true
                     load(periodValue = period)
                 }
             }
@@ -162,6 +181,7 @@ class PieChartStatisticViewModel @Inject constructor(
         screen: PieChartStatisticScreen
     ) {
         viewModelScope.launch(Dispatchers.Default) {
+            invested = screen.invested
             startInternally(
                 period = ivyContext.selectedPeriod,
                 type = screen.type,
@@ -208,6 +228,10 @@ class PieChartStatisticViewModel @Inject constructor(
     private suspend fun load(
         periodValue: TimePeriod
     ) {
+        if (invested) {
+            loadInvested(periodValue)
+            return
+        }
         val type = transactionType
         val accountIdFilterList = accountIdFilterList
         val transactions = transactions
@@ -224,7 +248,36 @@ class PieChartStatisticViewModel @Inject constructor(
         categoryAmounts = categoryAmountsValue
         selectedCategory = null
         transactionCount = pieChartActOutput.transactionCount
-        loadTrend(periodValue, type, totalAmountValue)
+        loadTrend(periodValue, totalAmountValue) { range -> pieChart(range, type).totalAmount }
+    }
+
+    /** Net money moved into each investment account (only the screen's accounts, when it has a filter). */
+    private suspend fun loadInvested(periodValue: TimePeriod) {
+        val ids = investmentAccounts.get()
+            .filter { accountIdFilterList.isEmpty() || it.value in accountIdFilterList }
+            .toSet()
+        val range = periodValue.toRange(ivyContext.startDayOfMonth, timeConverter, timeProvider)
+        val periodTransactions = transactionsIn(range)
+        val byAccount = NetInvested.byAccount(periodTransactions, ids)
+        val accounts = accountRepository.findAll().associateBy { it.id }
+        val total = byAccount.values.sum()
+
+        period = periodValue
+        investedAccounts = byAccount.mapNotNull { (id, amount) ->
+            accounts[id]?.let { InvestedAccount(id, it.name.value, it.color.value, amount) }
+        }.sortedByDescending { it.amount }.toImmutableList()
+        totalAmount = total
+        categoryAmounts = persistentListOf()
+        selectedCategory = null
+        transactionCount = periodTransactions.count { trn ->
+            trn is Transfer && trn.settled && ((trn.fromAccount in ids) != (trn.toAccount in ids))
+        }
+        loadTrend(periodValue, total) { monthRange -> NetInvested.total(transactionsIn(monthRange), ids) }
+    }
+
+    private suspend fun transactionsIn(range: FromToTimeRange): List<DomainTransaction> {
+        val utc = range.toUTCCloseTimeRange()
+        return transactionRepository.findAllBetween(utc.from, utc.to)
     }
 
     private suspend fun pieChart(range: FromToTimeRange, type: TransactionType): PieChartAct.Output {
@@ -250,7 +303,11 @@ class PieChartStatisticViewModel @Inject constructor(
     }
 
     /** Totals of the last months for the trend chart and the comparison; only for a month period. */
-    private suspend fun loadTrend(periodValue: TimePeriod, type: TransactionType, currentTotal: Double) {
+    private suspend fun loadTrend(
+        periodValue: TimePeriod,
+        currentTotal: Double,
+        monthTotal: suspend (FromToTimeRange) -> Double,
+    ) {
         val month = periodValue.month
         if (month == null || transactions.isNotEmpty()) {
             trend = persistentListOf()
@@ -266,7 +323,7 @@ class PieChartStatisticViewModel @Inject constructor(
             } else {
                 val monthPeriod = TimePeriod(month = Month.fromMonthValue(yearMonth.monthValue), year = yearMonth.year)
                 val range = monthPeriod.toRange(ivyContext.startDayOfMonth, timeConverter, timeProvider)
-                pieChart(range, type).totalAmount
+                monthTotal(range)
             }
         }
         val previous = totals.dropLast(1)

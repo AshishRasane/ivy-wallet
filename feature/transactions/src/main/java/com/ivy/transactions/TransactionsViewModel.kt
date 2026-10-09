@@ -2,6 +2,8 @@ package com.ivy.transactions
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -15,6 +17,7 @@ import com.ivy.base.legacy.stringRes
 import com.ivy.base.model.TransactionType
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
+import com.ivy.data.datasource.InvestmentAccountsDataSource
 import com.ivy.data.db.dao.read.AccountDao
 import com.ivy.data.db.dao.write.WritePlannedPaymentRuleDao
 import com.ivy.data.model.AccountId
@@ -99,7 +102,8 @@ class TransactionsViewModel @Inject constructor(
     private val tagRepository: TagRepository,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
-    private val features: Features
+    private val features: Features,
+    private val investmentAccounts: InvestmentAccountsDataSource,
 ) : ComposeViewModel<TransactionsState, TransactionsEvent>() {
 
     private val period = mutableStateOf(ivyContext.selectedPeriod)
@@ -171,6 +175,7 @@ class TransactionsViewModel @Inject constructor(
             choosePeriodModal = getChoosePeriodModal(),
             showAccountColorsInTransactions = getShouldShowAccountSpecificColorInTransactions(),
             lastBillPaymentAccountId = lastBillPaymentAccountId.value,
+            isInvestment = getIsInvestment(),
         )
     }
 
@@ -270,6 +275,13 @@ class TransactionsViewModel @Inject constructor(
     }
 
     @Composable
+    private fun getIsInvestment(): Boolean? {
+        val accountId = account.value?.id ?: return null
+        val ids by investmentAccounts.ids.collectAsState(initial = emptySet())
+        return AccountId(accountId) in ids
+    }
+
+    @Composable
     private fun getHistoryGroups(): ImmutableList<TransactionDayGroupUi> {
         val history = history.value
         val accounts = accounts.value
@@ -357,6 +369,9 @@ class TransactionsViewModel @Inject constructor(
             is TransactionsEvent.SetSkipAllModalVisible -> setSkipAllModalVisible(event.visible)
             is TransactionsEvent.OnDeleteModal1Visible -> setDeleteModal1Visible(event.delete)
             is TransactionsEvent.OnChoosePeriodModalData -> setChoosePeriodModalData(event.data)
+            is TransactionsEvent.SetInvestment -> account.value?.id?.let { id ->
+                viewModelScope.launch { investmentAccounts.set(AccountId(id), event.isInvestment) }
+            }
         }
     }
 

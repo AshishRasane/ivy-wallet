@@ -68,6 +68,7 @@ import com.ivy.wallet.ui.theme.modal.edit.AccountModal
 import com.ivy.wallet.ui.theme.modal.edit.AccountModalData
 import com.ivy.wallet.ui.theme.toComposeColor
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentSetOf
 import java.util.UUID
 
 private val ScreenPadding = 20.dp
@@ -133,6 +134,7 @@ private fun BoxWithConstraintsScope.UI(
                 data = data,
                 baseCurrency = state.baseCurrency,
                 showMonth = !state.compactAccountsModeEnabled,
+                isInvestment = data.account.id.value in state.investmentAccountIds,
                 onClick = { openAccount(data) },
             )
         }
@@ -217,6 +219,7 @@ private fun AccountCard(
     data: AccountData,
     baseCurrency: String,
     showMonth: Boolean,
+    isInvestment: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -256,7 +259,11 @@ private fun AccountCard(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = if (account.includeInBalance) currency else "$currency · Not in net worth",
+                text = listOfNotNull(
+                    currency,
+                    "Investment".takeIf { isInvestment },
+                    "Not in net worth".takeIf { !account.includeInBalance },
+                ).joinToString(" · "),
                 style = RevampType.label,
                 color = colors.inkMuted,
             )
@@ -356,7 +363,8 @@ private fun previewState(compact: Boolean): AccountsState {
         totalBalanceWithoutExcludedText = "INR 1,24,560.40",
         reorderVisible = false,
         compactAccountsModeEnabled = compact,
-        hideTotalBalance = false
+        hideTotalBalance = false,
+        investmentAccountIds = persistentSetOf(),
     )
 }
 

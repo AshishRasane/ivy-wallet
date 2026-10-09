@@ -29,6 +29,7 @@ sealed interface HomeEvent {
     data class DismissCustomerJourneyCard(val card: CustomerJourneyCardModel) : HomeEvent
 
     data object ReviewSmsTransactions : HomeEvent
+    data object OpenInvested : HomeEvent
 
     data class OpenTransaction(val row: TransactionRowUi) : HomeEvent
 

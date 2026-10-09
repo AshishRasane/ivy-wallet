@@ -45,4 +45,5 @@ sealed interface TransactionsEvent {
     data class SetSkipAllModalVisible(val visible: Boolean) : TransactionsEvent
     data class OnDeleteModal1Visible(val delete: Boolean) : TransactionsEvent
     data class OnChoosePeriodModalData(val data: ChoosePeriodModalData?) : TransactionsEvent
+    data class SetInvestment(val isInvestment: Boolean) : TransactionsEvent
 }

@@ -57,12 +57,15 @@ data class TransactionsScreen(
         get() = true
 }
 
+@Suppress("DataClassDefaultValues") // optional filters
 data class PieChartStatisticScreen(
     val type: TransactionType,
     val filterExcluded: Boolean = true,
     val accountList: ImmutableList<UUID> = persistentListOf(),
     val transactions: ImmutableList<Transaction> = persistentListOf(),
-    val treatTransfersAsIncomeExpense: Boolean = false
+    val treatTransfersAsIncomeExpense: Boolean = false,
+    /** Show net money moved into investment accounts instead of [type]. */
+    val invested: Boolean = false,
 ) : Screen {
     override val isLegacy: Boolean
         get() = true

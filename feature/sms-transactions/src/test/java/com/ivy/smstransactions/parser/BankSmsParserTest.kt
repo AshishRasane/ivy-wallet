@@ -76,6 +76,67 @@ class BankSmsParserTest {
             )
         ),
 
+        // investments: money sent to an investment app is a transfer to the investment account
+        KuveraHdfcUpi(
+            sender = "VM-HDFCBK-S",
+            body = "Sent Rs.25000.00\nFrom HDFC Bank A/C *9012\nTo Kuvera RZP\nOn 15/09/26\n" +
+                "Ref 662400000001\nNot You?\nCall 18002586161/SMS BLOCK UPI to 7308080808",
+            expected = trn(
+                type = TRANSFER,
+                amount = 25000.0,
+                counterparty = "Kuvera RZP",
+                account = "9012",
+                bank = "HDFC Bank",
+                ref = "662400000001",
+                date = LocalDate.of(2026, 9, 15),
+            )
+        ),
+        KuveraAxisUpi(
+            sender = "AX-AXISBK-S",
+            body = "INR 1000.00 debited\nA/c no. XX7289\n08-09-26, 15:05:42\nUPI/P2M/661700000002/Kuvera RZP\n" +
+                "Not you? SMS BLOCKUPI Cust ID to 919951860002\nAxis Bank",
+            expected = trn(
+                type = TRANSFER,
+                amount = 1000.0,
+                counterparty = "Kuvera RZP",
+                account = "7289",
+                bank = "Axis Bank",
+                ref = "661700000002",
+                date = LocalDate.of(2026, 9, 8),
+                time = LocalTime.of(15, 5, 42),
+            )
+        ),
+        GrowwUpi(
+            sender = "AX-HDFCBK-S",
+            body = "Rs.5,000.00 debited from a/c XX1234 on 07-10-26 to NEXTBILLION TECHNOLOGY via UPI. " +
+                "UPI Ref No 627800000003",
+            expected = trn(
+                type = TRANSFER,
+                amount = 5000.0,
+                counterparty = "NEXTBILLION TECHNOLOGY",
+                account = "1234",
+                bank = "HDFC Bank",
+                ref = "627800000003",
+                date = LocalDate.of(2026, 10, 7),
+            )
+        ),
+
+        // a sale/redemption stays income in the parser; the store suggests it as a transfer
+        ZerodhaRedemption(
+            sender = "AX-HDFCBK-S",
+            body = "Rs.10,000.00 credited to a/c XX1234 on 08-10-26 by NEFT from ZERODHA BROKING LTD. " +
+                "Ref 627800000004",
+            expected = trn(
+                type = INCOME,
+                amount = 10000.0,
+                counterparty = "ZERODHA BROKING LTD",
+                account = "1234",
+                bank = "HDFC Bank",
+                ref = "627800000004",
+                date = LocalDate.of(2026, 10, 8),
+            )
+        ),
+
         // paying rent on CRED *with* the credit card is spending
         CredPurchaseWithCard(
             sender = "AX-ICICIT-S",

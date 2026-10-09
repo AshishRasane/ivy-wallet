@@ -40,4 +40,6 @@ data class HomeState(
     val pendingSmsCount: Int,
     /** The latest transactions of the period, grouped by day. */
     val recent: ImmutableList<TransactionDayGroupUi>,
+    /** Net money moved into investment accounts this period; null when no account is an investment. */
+    val invested: Double?,
 )

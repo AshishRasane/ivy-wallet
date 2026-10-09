@@ -116,10 +116,15 @@ class SmsTransactionNotifier @Inject constructor(
     /** "HDFC Savings · Food & Drinks", or "HDFC Savings → ICICI Card" for a transfer. */
     private fun learned(suggestion: SmsSuggestion): List<String> =
         if (suggestion.type == TransactionType.TRANSFER) {
+            val from = suggestion.accountName
+            val to = suggestion.toAccountName
             listOfNotNull(
-                listOfNotNull(suggestion.accountName, suggestion.toAccountName)
-                    .joinToString(" → ")
-                    .ifBlank { null }
+                when {
+                    from != null && to != null -> "$from → $to"
+                    to != null -> "To $to"
+                    from != null -> "From $from"
+                    else -> null
+                }
             )
         } else {
             listOfNotNull(suggestion.accountName, suggestion.categoryName)

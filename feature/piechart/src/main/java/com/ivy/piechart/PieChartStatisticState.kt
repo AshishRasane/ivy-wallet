@@ -28,4 +28,7 @@ data class PieChartStatisticState(
     /** "12% less than September" */
     val comparison: String?,
     val transactionCount: Int,
+    /** Showing net money moved into investment accounts instead of [transactionType]. */
+    val invested: Boolean,
+    val investedAccounts: ImmutableList<InvestedAccount>,
 )

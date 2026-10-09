@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -15,6 +16,7 @@ import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
 import com.ivy.data.DataObserver
 import com.ivy.data.DataWriteEvent
+import com.ivy.data.datasource.InvestmentAccountsDataSource
 import com.ivy.data.repository.AccountRepository
 import com.ivy.domain.features.Features
 import com.ivy.legacy.IvyWalletCtx
@@ -31,6 +33,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableSet
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -53,6 +56,7 @@ class AccountsViewModel @Inject constructor(
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
     private val accountCreator: AccountCreator,
+    private val investmentAccounts: InvestmentAccountsDataSource,
 ) : ComposeViewModel<AccountsState, AccountsEvent>() {
     private var baseCurrency by mutableStateOf("")
     private var accountsData by mutableStateOf(listOf<AccountData>())
@@ -93,7 +97,11 @@ class AccountsViewModel @Inject constructor(
             totalBalanceWithoutExcludedText = getTotalBalanceWithoutExcludedText(),
             reorderVisible = getReorderVisible(),
             compactAccountsModeEnabled = getCompactAccountsMode(),
-            hideTotalBalance = getHideTotalBalance()
+            hideTotalBalance = getHideTotalBalance(),
+            investmentAccountIds = investmentAccounts.ids
+                .collectAsState(initial = emptySet()).value
+                .map { it.value }
+                .toImmutableSet(),
         )
     }
 

@@ -1,33 +1,31 @@
 package com.ivy.home
 
-import com.ivy.data.repository.AccountRepository
-import com.ivy.data.repository.TransactionRepository
-import com.ivy.navigation.EditTransactionScreen
-import com.ivy.transactions.revamp.TransactionDayGroupUi
-import com.ivy.transactions.revamp.TransactionRows
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.remember
-import com.ivy.data.db.dao.SmsDao
-import com.ivy.data.db.entity.SmsTransactionStatus
-import com.ivy.navigation.AccountsScreen
-import com.ivy.navigation.SmsReviewScreen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewModelScope
 import com.ivy.base.legacy.Theme
 import com.ivy.base.legacy.Transaction
 import com.ivy.base.legacy.TransactionHistoryItem
+import com.ivy.base.model.TransactionType
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
+import com.ivy.data.datasource.InvestmentAccountsDataSource
+import com.ivy.data.db.dao.SmsDao
+import com.ivy.data.db.entity.SmsTransactionStatus
 import com.ivy.data.model.primitive.AssetCode
+import com.ivy.data.repository.AccountRepository
 import com.ivy.data.repository.CategoryRepository
+import com.ivy.data.repository.TransactionRepository
 import com.ivy.data.repository.mapper.TransactionMapper
 import com.ivy.domain.features.Features
 import com.ivy.domain.usecase.exchange.SyncExchangeRatesUseCase
+import com.ivy.domain.usecase.investments.NetInvested
 import com.ivy.frp.fixUnit
 import com.ivy.frp.then
 import com.ivy.frp.thenInvokeAfter
@@ -46,8 +44,14 @@ import com.ivy.legacy.domain.action.settings.UpdateSettingsAct
 import com.ivy.legacy.domain.action.viewmodel.home.ShouldHideIncomeAct
 import com.ivy.legacy.utils.dateNowUTC
 import com.ivy.legacy.utils.ioThread
+import com.ivy.navigation.AccountsScreen
 import com.ivy.navigation.BalanceScreen
+import com.ivy.navigation.EditTransactionScreen
 import com.ivy.navigation.Navigation
+import com.ivy.navigation.PieChartStatisticScreen
+import com.ivy.navigation.SmsReviewScreen
+import com.ivy.transactions.revamp.TransactionDayGroupUi
+import com.ivy.transactions.revamp.TransactionRows
 import com.ivy.ui.ComposeViewModel
 import com.ivy.wallet.domain.action.account.AccountsAct
 import com.ivy.wallet.domain.action.global.StartDayOfMonthAct
@@ -66,13 +70,13 @@ import com.ivy.wallet.domain.deprecated.logic.PlannedPaymentsLogic
 import com.ivy.wallet.domain.pure.data.ClosedTimeRange
 import com.ivy.wallet.domain.pure.data.IncomeExpensePair
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.math.BigDecimal
+import javax.inject.Inject
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.math.BigDecimal
-import javax.inject.Inject
 
 @Stable
 @HiltViewModel
@@ -105,6 +109,7 @@ class HomeViewModel @Inject constructor(
     private val smsDao: SmsDao,
     private val transactionRepository: TransactionRepository,
     private val accountRepository: AccountRepository,
+    private val investmentAccounts: InvestmentAccountsDataSource,
 ) : ComposeViewModel<HomeState, HomeEvent>() {
     private var currentTheme by mutableStateOf(Theme.AUTO)
     private var name by mutableStateOf("")
@@ -118,6 +123,7 @@ class HomeViewModel @Inject constructor(
     )
     private var history by mutableStateOf<ImmutableList<TransactionHistoryItem>>(persistentListOf())
     private var recent by mutableStateOf<ImmutableList<TransactionDayGroupUi>>(persistentListOf())
+    private var invested by mutableStateOf<Double?>(null)
     private var stats by mutableStateOf(IncomeExpensePair.zero())
     private var balance by mutableStateOf(BigDecimal.ZERO)
     private var buffer by mutableStateOf(
@@ -170,6 +176,7 @@ class HomeViewModel @Inject constructor(
             shouldShowAccountSpecificColorInTransactions = getShouldShowAccountSpecificColorInTransactions(),
             pendingSmsCount = getPendingSmsCount(),
             recent = getRecent(),
+            invested = getInvested(),
         )
     }
 
@@ -182,12 +189,28 @@ class HomeViewModel @Inject constructor(
         return recent
     }
 
+    @Composable
+    private fun getInvested(): Double? {
+        val ids by investmentAccounts.ids.collectAsState(initial = emptySet())
+        LaunchedEffect(history, ids) {
+            invested = if (ids.isEmpty()) {
+                null
+            } else {
+                val range = periodRange()
+                NetInvested.total(transactionRepository.findAllBetween(range.from, range.to), ids)
+            }
+        }
+        return invested
+    }
+
+    private fun periodRange(): ClosedTimeRange = period.toRange(
+        startDateOfMonth = ivyContext.startDayOfMonth,
+        timeConverter = timeConverter,
+        timeProvider = timeProvider,
+    ).toUTCCloseTimeRange()
+
     private suspend fun loadRecent(): ImmutableList<TransactionDayGroupUi> {
-        val range = period.toRange(
-            startDateOfMonth = ivyContext.startDayOfMonth,
-            timeConverter = timeConverter,
-            timeProvider = timeProvider,
-        ).toUTCCloseTimeRange()
+        val range = periodRange()
         return TransactionRows.group(
             transactions = transactionRepository.findAllBetween(range.from, range.to),
             accounts = accountRepository.findAll().associateBy { it.id },
@@ -280,6 +303,7 @@ class HomeViewModel @Inject constructor(
         return hideIncome
     }
 
+    @Suppress("CyclomaticComplexMethod") // one branch per event
     override fun onEvent(event: HomeEvent) {
         viewModelScope.launch {
             when (event) {
@@ -299,6 +323,9 @@ class HomeViewModel @Inject constructor(
                 HomeEvent.SwitchTheme -> switchTheme()
                 is HomeEvent.DismissCustomerJourneyCard -> dismissCustomerJourneyCard(event.card)
                 HomeEvent.ReviewSmsTransactions -> nav.navigateTo(SmsReviewScreen)
+                HomeEvent.OpenInvested -> nav.navigateTo(
+                    PieChartStatisticScreen(type = TransactionType.EXPENSE, invested = true)
+                )
                 is HomeEvent.OpenTransaction -> nav.navigateTo(
                     EditTransactionScreen(initialTransactionId = event.row.id, type = event.row.type)
                 )

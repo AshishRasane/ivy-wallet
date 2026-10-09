@@ -20,6 +20,13 @@ class PieChartStatisticPaparazziTest(
     }
 
     @Test
+    fun `snapshot Reports invested`() {
+        snapshot(theme) {
+            PieChartStatisticUiTest(isDark = theme == PaparazziTheme.Dark, invested = true)
+        }
+    }
+
+    @Test
     fun `snapshot Reports income`() {
         snapshot(theme) {
             PieChartStatisticUiTest(isDark = theme == PaparazziTheme.Dark, income = true)

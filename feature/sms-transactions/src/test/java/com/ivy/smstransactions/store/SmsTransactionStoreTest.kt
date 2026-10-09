@@ -34,13 +34,15 @@ class SmsTransactionStoreTest {
                 val link = firstArg<SmsAccountLinkEntity>()
                 links[link.key] = link
             }
-            coEvery { deleteAccountLink(any()) } answers { links.remove(firstArg<String>()) }
             coEvery { findCategoryLink(any()) } returns null
         }
         val accountDao = mockk<AccountDao> {
             coEvery { findById(any()) } answers {
                 val id = firstArg<UUID>()
                 AccountEntity(name = NAMES.getValue(id), color = 0, id = id)
+            }
+            coEvery { findAll(any()) } answers {
+                NAMES.map { (id, name) -> AccountEntity(name = name, color = 0, id = id) }
             }
         }
         val categoryDao = mockk<CategoryDao>(relaxed = true)
@@ -92,8 +94,45 @@ class SmsTransactionStoreTest {
         // When
         store.markAdded(sms(TransactionType.EXPENSE, "Kuvera RZP").id, SLICE, categoryId = null, toAccountId = null)
 
-        // Then
+        // Then - also when the parser itself sees it as a transfer, and despite the "Kuvera" account
         store.suggestion(sms(TransactionType.EXPENSE, "Kuvera RZP")).type shouldBe TransactionType.EXPENSE
+        store.suggestion(sms(TransactionType.TRANSFER, "Kuvera RZP")).type shouldBe TransactionType.EXPENSE
+    }
+
+    @Test
+    fun `an investment app is matched to the account with its name the first time`() = runTest {
+        // When - nothing learned yet; the user has an account called "Kuvera"
+        val suggestion = store.suggestion(sms(TransactionType.TRANSFER, "Kuvera RZP"))
+
+        // Then
+        suggestion.type shouldBe TransactionType.TRANSFER
+        suggestion.toAccountId shouldBe KUVERA
+    }
+
+    @Test
+    fun `money back from an investment app is a transfer into the bank`() = runTest {
+        // Given - the bank account was learned from an earlier SMS
+        store.markAdded(sms(TransactionType.EXPENSE, "SWIGGY").id, SLICE, categoryId = null, toAccountId = null)
+
+        // When - a redemption from Kuvera is credited
+        val redemption = sms(TransactionType.INCOME, "Kuvera RZP")
+        val suggestion = store.suggestion(redemption)
+
+        // Then
+        suggestion.type shouldBe TransactionType.TRANSFER
+        suggestion.accountId shouldBe KUVERA
+        suggestion.toAccountId shouldBe SLICE
+        suggestion.isComplete shouldBe true
+
+        // and saving it keeps the bank link pointing at the bank
+        store.markAdded(redemption.id, accountId = KUVERA, categoryId = null, toAccountId = SLICE)
+        store.suggestion(sms(TransactionType.EXPENSE, "SWIGGY")).accountId shouldBe SLICE
+    }
+
+    @Test
+    fun `a shop whose name looks like an account isn't a transfer`() = runTest {
+        // "Coin Laundry" isn't an investment app, even though an account is called "Coin"
+        store.suggestion(sms(TransactionType.EXPENSE, "Coin Laundry")).type shouldBe TransactionType.EXPENSE
     }
 
     private fun sms(type: TransactionType, counterparty: String): SmsTransactionEntity {
@@ -118,6 +157,7 @@ class SmsTransactionStoreTest {
         private val SLICE = UUID.randomUUID()
         private val CARD = UUID.randomUUID()
         private val KUVERA = UUID.randomUUID()
-        private val NAMES = mapOf(SLICE to "slice", CARD to "ICICI Card", KUVERA to "Kuvera")
+        private val COIN = UUID.randomUUID()
+        private val NAMES = mapOf(SLICE to "slice", CARD to "ICICI Card", KUVERA to "Kuvera", COIN to "Coin")
     }
 }

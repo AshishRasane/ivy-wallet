@@ -52,6 +52,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ivy.base.legacy.Theme
 import com.ivy.base.model.TransactionType
+import com.ivy.data.model.AccountId
 import com.ivy.data.model.Category
 import com.ivy.data.model.CategoryId
 import com.ivy.data.model.primitive.ColorInt
@@ -74,6 +75,7 @@ import com.ivy.navigation.TransactionsScreen
 import com.ivy.navigation.navigation
 import com.ivy.navigation.screenScopedViewModel
 import com.ivy.wallet.ui.theme.modal.ChoosePeriodModal
+import kotlin.math.abs
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -100,8 +102,18 @@ private data class Slice(
     /** 0..1 of the largest category, for the bar */
     val bar: Float,
     val color: Color,
-    val categoryAmount: CategoryAmount,
+    val target: SliceTarget,
 )
+
+/** What tapping a row opens. */
+@Immutable
+private sealed interface SliceTarget {
+    data class Category(val categoryAmount: CategoryAmount) : SliceTarget
+
+    // AccountId is a typed value-class id; the detekt rule doesn't recognize it.
+    @Suppress("DataClassTypedIDs")
+    data class Account(val accountId: AccountId) : SliceTarget
+}
 
 @Composable
 fun BoxWithConstraintsScope.PieChartStatisticScreen(
@@ -129,7 +141,13 @@ private fun BoxWithConstraintsScope.UI(
     val nav = navigation()
     val colors = revampColors()
     val isExpense = state.transactionType == TransactionType.EXPENSE
-    val slices = slices(state, colors)
+    val view = when {
+        state.invested -> ReportView.Invested
+        isExpense -> ReportView.Expenses
+        else -> ReportView.Income
+    }
+    val slices = if (state.invested) investedSlices(state, colors) else slices(state, colors)
+    val (accent, soft) = view.colors(colors)
     // opened with a fixed list of transactions (from an account's transfers): no period or type to change
     val fixedTransactions = state.showCloseButtonOnly
 
@@ -155,46 +173,38 @@ private fun BoxWithConstraintsScope.UI(
                 )
             }
             item {
-                TypeSwitch(
-                    isExpense = isExpense,
-                    onSelect = { onEvent(PieChartStatisticEvent.OnTypeChanged(it)) },
-                )
+                TypeSwitch(selected = view, onSelect = { onEvent(it.toEvent()) })
             }
         }
         item {
             DonutCard(
                 slices = slices,
-                label = if (isExpense) "Spent" else "Earned",
-                total = AmountFormat.format(state.totalAmount, state.baseCurrency),
-                totalColor = if (isExpense) colors.expense else colors.income,
-                count = when (state.transactionCount) {
-                    0 -> if (isExpense) "No expenses" else "No income"
-                    1 -> "1 transaction"
-                    else -> "${state.transactionCount} transactions"
-                },
+                label = view.totalLabel(state.totalAmount),
+                total = AmountFormat.format(abs(state.totalAmount), state.baseCurrency),
+                totalColor = if (state.invested) colors.onPrimaryTint else accent,
+                count = countLabel(state.transactionCount, state.invested, isExpense),
                 comparison = state.comparison,
             )
         }
         if (slices.isNotEmpty()) {
             item {
                 CategoryList(
+                    title = if (state.invested) "By account" else "By category",
                     slices = slices,
-                    onClick = { item ->
-                        nav.navigateTo(
-                            TransactionsScreen(
-                                categoryId = item.category?.id?.value,
-                                unspecifiedCategory = item.isCategoryUnspecified,
-                                accountIdFilterList = state.accountIdFilterList,
-                                transactions = item.associatedTransactions
-                            )
-                        )
-                    },
+                    onClick = { target -> nav.navigateTo(target.screen(state.accountIdFilterList)) },
                 )
             }
+        } else if (state.invested) {
+            item { NoInvestments() }
         }
         if (state.trend.isNotEmpty()) {
             item {
-                TrendCard(bars = state.trend, average = state.trendAverage, isExpense = isExpense)
+                TrendCard(
+                    bars = state.trend,
+                    average = state.trendAverage,
+                    accent = accent,
+                    soft = soft,
+                )
             }
         }
         if (!fixedTransactions && state.accountIdFilterList.isEmpty()) {
@@ -227,9 +237,89 @@ private fun slices(state: PieChartStatisticState, colors: RevampColors): Immutab
             share = share.toFloat(),
             bar = (item.amount / largest).toFloat().coerceAtLeast(MinBar),
             color = item.category?.color?.value?.let { Color(it) } ?: colors.inkMuted,
-            categoryAmount = item,
+            target = SliceTarget.Category(item),
         )
     }.toImmutableList()
+}
+
+/** Accounts with money put in, largest first; the donut shows only those, withdrawals are listed after. */
+private fun investedSlices(state: PieChartStatisticState, colors: RevampColors): ImmutableList<Slice> {
+    val inTotal = state.investedAccounts.filter { it.amount > 0 }.sumOf { it.amount }
+    val largest = state.investedAccounts.maxOfOrNull { abs(it.amount) }?.takeIf { it > 0 } ?: return persistentListOf()
+    return state.investedAccounts.filter { it.amount != 0.0 }.map { account ->
+        val share = if (account.amount > 0 && inTotal > 0) account.amount / inTotal else 0.0
+        Slice(
+            name = account.name,
+            amount = AmountFormat.format(account.amount, state.baseCurrency),
+            percent = if (share > 0) "${(share * Percent).roundToInt().coerceAtLeast(1)}%" else "Withdrawn",
+            share = share.toFloat(),
+            bar = (abs(account.amount) / largest).toFloat().coerceAtLeast(MinBar),
+            color = if (account.amount > 0) Color(account.color) else colors.inkMuted,
+            target = SliceTarget.Account(account.accountId),
+        )
+    }.toImmutableList()
+}
+
+private fun countLabel(count: Int, invested: Boolean, isExpense: Boolean): String {
+    val noun = if (invested) "transfer" else "transaction"
+    return when {
+        count == 0 && invested -> "No transfers"
+        count == 0 -> if (isExpense) "No expenses" else "No income"
+        count == 1 -> "1 $noun"
+        else -> "$count ${noun}s"
+    }
+}
+
+private enum class ReportView(val label: String) {
+    Expenses("Expenses"),
+    Income("Income"),
+    Invested("Invested");
+
+    fun toEvent(): PieChartStatisticEvent = when (this) {
+        Expenses -> PieChartStatisticEvent.OnTypeChanged(TransactionType.EXPENSE)
+        Income -> PieChartStatisticEvent.OnTypeChanged(TransactionType.INCOME)
+        Invested -> PieChartStatisticEvent.OnInvestedSelected
+    }
+
+    fun totalLabel(total: Double): String = when (this) {
+        Expenses -> "Spent"
+        Income -> "Earned"
+        Invested -> if (total < 0) "Withdrawn" else "Invested"
+    }
+
+    /** Strong and soft color: chart bars, totals. */
+    fun colors(colors: RevampColors): Pair<Color, Color> = when (this) {
+        Expenses -> colors.expense to colors.expenseTint
+        Income -> colors.income to colors.incomeTint
+        Invested -> colors.primary to colors.primaryTint
+    }
+}
+
+private fun SliceTarget.screen(accountIdFilterList: List<UUID>): TransactionsScreen = when (this) {
+    is SliceTarget.Account -> TransactionsScreen(accountId = accountId.value)
+    is SliceTarget.Category -> TransactionsScreen(
+        categoryId = categoryAmount.category?.id?.value,
+        unspecifiedCategory = categoryAmount.isCategoryUnspecified,
+        accountIdFilterList = accountIdFilterList,
+        transactions = categoryAmount.associatedTransactions
+    )
+}
+
+@Composable
+private fun NoInvestments() {
+    val colors = revampColors()
+    Text(
+        modifier = Modifier
+            .padding(horizontal = ScreenPadding)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(colors.surface)
+            .padding(16.dp),
+        text = "No money moved into investment accounts this month. To count an account (e.g. Zerodha, " +
+            "Kuvera) as an investment, open it from Accounts and turn on \"Count as investment\".",
+        style = RevampType.label,
+        color = colors.inkMuted,
+    )
 }
 
 @Composable
@@ -275,7 +365,7 @@ private fun PeriodSwitcher(
 }
 
 @Composable
-private fun TypeSwitch(isExpense: Boolean, onSelect: (TransactionType) -> Unit) {
+private fun TypeSwitch(selected: ReportView, onSelect: (ReportView) -> Unit) {
     val colors = revampColors()
     Row(
         modifier = Modifier
@@ -287,18 +377,22 @@ private fun TypeSwitch(isExpense: Boolean, onSelect: (TransactionType) -> Unit) 
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        listOf(TransactionType.EXPENSE to "Expenses", TransactionType.INCOME to "Income").forEach { (type, label) ->
-            val selected = isExpense == (type == TransactionType.EXPENSE)
+        ReportView.entries.forEach { view ->
+            val isSelected = view == selected
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .heightIn(min = 40.dp)
                     .clip(RoundedCornerShape(20.dp))
-                    .background(if (selected) colors.ink else Color.Transparent)
-                    .clickable(role = Role.RadioButton) { onSelect(type) },
+                    .background(if (isSelected) colors.ink else Color.Transparent)
+                    .clickable(role = Role.RadioButton) { onSelect(view) },
                 contentAlignment = Alignment.Center,
             ) {
-                Text(text = label, style = RevampType.bodyStrong, color = if (selected) colors.surface else colors.ink)
+                Text(
+                    text = view.label,
+                    style = RevampType.bodyStrong,
+                    color = if (isSelected) colors.surface else colors.ink,
+                )
             }
         }
     }
@@ -376,7 +470,7 @@ private fun Donut(slices: ImmutableList<Slice>, empty: Color) {
 }
 
 @Composable
-private fun CategoryList(slices: ImmutableList<Slice>, onClick: (CategoryAmount) -> Unit) {
+private fun CategoryList(title: String, slices: ImmutableList<Slice>, onClick: (SliceTarget) -> Unit) {
     val colors = revampColors()
     Column(
         modifier = Modifier.padding(horizontal = ScreenPadding),
@@ -384,7 +478,7 @@ private fun CategoryList(slices: ImmutableList<Slice>, onClick: (CategoryAmount)
     ) {
         Text(
             modifier = Modifier.padding(horizontal = 4.dp),
-            text = "By category",
+            text = title,
             style = RevampType.caption,
             color = colors.inkMuted,
         )
@@ -396,7 +490,7 @@ private fun CategoryList(slices: ImmutableList<Slice>, onClick: (CategoryAmount)
         ) {
             slices.forEachIndexed { index, slice ->
                 if (index > 0) HorizontalDivider(color = colors.divider)
-                CategoryRow(slice = slice, onClick = { onClick(slice.categoryAmount) })
+                CategoryRow(slice = slice, onClick = { onClick(slice.target) })
             }
         }
     }
@@ -461,10 +555,8 @@ private fun CategoryRow(slice: Slice, onClick: () -> Unit) {
 }
 
 @Composable
-private fun TrendCard(bars: ImmutableList<TrendBar>, average: String?, isExpense: Boolean) {
+private fun TrendCard(bars: ImmutableList<TrendBar>, average: String?, accent: Color, soft: Color) {
     val colors = revampColors()
-    val accent = if (isExpense) colors.expense else colors.income
-    val soft = if (isExpense) colors.expenseTint else colors.incomeTint
     Column(
         modifier = Modifier
             .padding(horizontal = ScreenPadding)
@@ -610,6 +702,8 @@ private fun previewState(type: TransactionType): PieChartStatisticState {
         trendAverage = "5-month avg ₹31.3k",
         comparison = ReportMath.comparison(totals[5], totals[4], months[4]),
         transactionCount = if (expense) 64 else 2,
+        invested = false,
+        investedAccounts = persistentListOf(),
     )
 }
 
@@ -629,9 +723,46 @@ private fun Preview_Income(theme: Theme = Theme.LIGHT) {
     }
 }
 
+@Suppress("MagicNumber")
+@Preview
+@Composable
+private fun Preview_Invested(theme: Theme = Theme.LIGHT) {
+    fun account(name: String, color: Long, amount: Double) = InvestedAccount(
+        accountId = AccountId(UUID.nameUUIDFromBytes(name.toByteArray())),
+        name = name,
+        color = Color(color).toArgb(),
+        amount = amount,
+    )
+    val accounts = persistentListOf(
+        account("Kuvera", 0xFF0B7A55, 25000.0),
+        account("Groww", 0xFF1F4FA8, 6000.0),
+        account("Zerodha", 0xFF6B2BB0, -4000.0),
+    )
+    val months = ReportMath.lastMonths(java.time.YearMonth.of(2026, 10), 6)
+    val totals = listOf(20000.0, 26000.0, 15000.0, 31000.0, 24000.0, 27000.0)
+    IvyWalletPreview(theme) {
+        UI(
+            state = previewState(TransactionType.EXPENSE).copy(
+                invested = true,
+                investedAccounts = accounts,
+                totalAmount = accounts.sumOf { it.amount },
+                categoryAmounts = persistentListOf(),
+                transactionCount = 4,
+                trend = ReportMath.trend(months, totals, "INR").toImmutableList(),
+                trendAverage = "5-month avg ₹23.2k",
+                comparison = ReportMath.comparison(totals[5], totals[4], months[4]),
+            )
+        )
+    }
+}
+
 /** For screenshot testing */
 @Composable
-fun PieChartStatisticUiTest(isDark: Boolean, income: Boolean = false) {
+fun PieChartStatisticUiTest(isDark: Boolean, income: Boolean = false, invested: Boolean = false) {
     val theme = if (isDark) Theme.DARK else Theme.LIGHT
-    if (income) Preview_Income(theme) else Preview_Expense(theme)
+    when {
+        invested -> Preview_Invested(theme)
+        income -> Preview_Income(theme)
+        else -> Preview_Expense(theme)
+    }
 }

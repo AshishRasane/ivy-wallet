@@ -46,4 +46,6 @@ data class TransactionsState(
     val showAccountColorsInTransactions: Boolean,
     /** The account this one's bill was last paid from (for "Pay bill"). */
     val lastBillPaymentAccountId: AccountId?,
+    /** The account counts as an investment; null when this isn't an account's screen. */
+    val isInvestment: Boolean?,
 )
