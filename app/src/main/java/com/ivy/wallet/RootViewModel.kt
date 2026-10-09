@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.time.Instant
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import javax.inject.Inject
 
@@ -52,6 +53,9 @@ class RootViewModel @Inject constructor(
         const val EXTRA_ADD_TRANSACTION_TITLE = "add_transaction_title_extra"
         const val EXTRA_ADD_TRANSACTION_DESCRIPTION = "add_transaction_description_extra"
         const val EXTRA_ADD_TRANSACTION_DATE_TIME = "add_transaction_date_time_extra"
+        const val EXTRA_ADD_TRANSACTION_ACCOUNT_ID = "add_transaction_account_id_extra"
+        const val EXTRA_ADD_TRANSACTION_CATEGORY_ID = "add_transaction_category_id_extra"
+        const val EXTRA_ADD_TRANSACTION_SMS_ID = "add_transaction_sms_id_extra"
 
         const val USER_INACTIVITY_TIME_LIMIT = 60 // Time in seconds
     }
@@ -130,6 +134,9 @@ class RootViewModel @Inject constructor(
                     dateTime = intent.getLongExtra(EXTRA_ADD_TRANSACTION_DATE_TIME, -1L)
                         .takeIf { it >= 0 }
                         ?.let(Instant::ofEpochMilli),
+                    accountId = intent.uuidExtra(EXTRA_ADD_TRANSACTION_ACCOUNT_ID),
+                    categoryId = intent.uuidExtra(EXTRA_ADD_TRANSACTION_CATEGORY_ID),
+                    smsTransactionId = intent.uuidExtra(EXTRA_ADD_TRANSACTION_SMS_ID),
                 )
             )
 
@@ -138,6 +145,9 @@ class RootViewModel @Inject constructor(
 
         return false
     }
+
+    private fun Intent.uuidExtra(name: String): UUID? =
+        getStringExtra(name)?.let { runCatching { UUID.fromString(it) }.getOrNull() }
 
     @Suppress("EmptyFunctionBlock")
     fun handleBiometricAuthResult(

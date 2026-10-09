@@ -24,7 +24,7 @@ data class CSVScreen(
         get() = true
 }
 
-@Suppress("DataClassDefaultValues") // optional extras/prefill
+@Suppress("DataClassDefaultValues", "DataClassTypedIDs") // optional extras/prefill; legacy UUID ids
 data class EditTransactionScreen(
     val initialTransactionId: UUID?,
     val type: TransactionType,
@@ -36,6 +36,8 @@ data class EditTransactionScreen(
     val title: String? = null,
     val description: String? = null,
     val dateTime: Instant? = null,
+    /** Set when the transaction was detected in a bank SMS. */
+    val smsTransactionId: UUID? = null,
 ) : Screen {
     override val isLegacy: Boolean
         get() = true

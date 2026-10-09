@@ -3,6 +3,7 @@ package com.ivy.data.db
 import android.content.Context
 import androidx.room.*
 import androidx.room.migration.AutoMigrationSpec
+import com.ivy.data.db.dao.SmsDao
 import com.ivy.data.db.dao.read.AccountDao
 import com.ivy.data.db.dao.read.BudgetDao
 import com.ivy.data.db.dao.read.CategoryDao
@@ -27,6 +28,9 @@ import com.ivy.data.db.dao.write.WriteTagDao
 import com.ivy.data.db.dao.write.WriteTagAssociationDao
 import com.ivy.data.db.dao.write.WriteTransactionDao
 import com.ivy.data.db.entity.AccountEntity
+import com.ivy.data.db.entity.SmsAccountLinkEntity
+import com.ivy.data.db.entity.SmsCategoryLinkEntity
+import com.ivy.data.db.entity.SmsTransactionEntity
 import com.ivy.data.db.entity.BudgetEntity
 import com.ivy.data.db.entity.CategoryEntity
 import com.ivy.data.db.entity.ExchangeRateEntity
@@ -69,16 +73,19 @@ import com.ivy.domain.db.migration.Migration125to126_Tags
         AccountEntity::class, TransactionEntity::class, CategoryEntity::class,
         SettingsEntity::class, PlannedPaymentRuleEntity::class,
         UserEntity::class, ExchangeRateEntity::class, BudgetEntity::class,
-        LoanEntity::class, LoanRecordEntity::class, TagEntity::class, TagAssociationEntity::class
+        LoanEntity::class, LoanRecordEntity::class, TagEntity::class, TagAssociationEntity::class,
+        SmsTransactionEntity::class, SmsAccountLinkEntity::class, SmsCategoryLinkEntity::class,
     ],
     autoMigrations = [
         AutoMigration(
             from = 121,
             to = 122,
             spec = IvyRoomDatabase.DeleteSEMigration::class
-        )
+        ),
+        // SMS v2: adds the sms_transactions, sms_account_links and sms_category_links tables
+        AutoMigration(from = 130, to = 131),
     ],
-    version = 130,
+    version = 131,
     exportSchema = true
 )
 @TypeConverters(RoomTypeConverters::class)
@@ -107,6 +114,8 @@ abstract class IvyRoomDatabase : RoomDatabase() {
     abstract val writeLoanRecordDao: WriteLoanRecordDao
     abstract val writeTagDao: WriteTagDao
     abstract val writeTagAssociationDao: WriteTagAssociationDao
+
+    abstract val smsDao: SmsDao
 
     companion object {
         const val DB_NAME = "ivywallet.db"

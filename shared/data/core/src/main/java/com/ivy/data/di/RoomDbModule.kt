@@ -2,6 +2,7 @@ package com.ivy.data.di
 
 import android.content.Context
 import com.ivy.data.db.IvyRoomDatabase
+import com.ivy.data.db.dao.SmsDao
 import com.ivy.data.db.dao.read.AccountDao
 import com.ivy.data.db.dao.read.BudgetDao
 import com.ivy.data.db.dao.read.CategoryDao
@@ -44,6 +45,11 @@ object RoomDbModule {
         return IvyRoomDatabase.create(
             applicationContext = appContext,
         )
+    }
+
+    @Provides
+    fun provideSmsDao(db: IvyRoomDatabase): SmsDao {
+        return db.smsDao
     }
 
     @Provides

@@ -48,6 +48,15 @@ class IvyAppStarter @Inject constructor(
             prefill.dateTime?.let {
                 putExtra(RootViewModel.EXTRA_ADD_TRANSACTION_DATE_TIME, it.toEpochMilli())
             }
+            prefill.accountId?.let {
+                putExtra(RootViewModel.EXTRA_ADD_TRANSACTION_ACCOUNT_ID, it.toString())
+            }
+            prefill.categoryId?.let {
+                putExtra(RootViewModel.EXTRA_ADD_TRANSACTION_CATEGORY_ID, it.toString())
+            }
+            prefill.smsTransactionId?.let {
+                putExtra(RootViewModel.EXTRA_ADD_TRANSACTION_SMS_ID, it.toString())
+            }
             applyWidgetStartFlags()
         }
     }

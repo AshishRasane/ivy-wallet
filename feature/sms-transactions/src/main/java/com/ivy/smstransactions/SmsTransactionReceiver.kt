@@ -6,6 +6,8 @@ import android.content.Intent
 import android.provider.Telephony
 import com.ivy.domain.features.Features
 import com.ivy.smstransactions.parser.BankSmsParser
+import com.ivy.smstransactions.parser.resolveDateTime
+import com.ivy.smstransactions.store.SmsTransactionStore
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +15,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.time.Instant
+import java.time.ZoneId
 import javax.inject.Inject
 
 /**
@@ -32,6 +35,9 @@ class SmsTransactionReceiver : BroadcastReceiver() {
     @Inject
     lateinit var features: Features
 
+    @Inject
+    lateinit var store: SmsTransactionStore
+
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
         val messages = Telephony.Sms.Intents.getMessagesFromIntent(intent).orEmpty()
@@ -49,9 +55,18 @@ class SmsTransactionReceiver : BroadcastReceiver() {
                         val receivedAt = Instant.ofEpochMilli(parts.first().timestampMillis)
                         parser.parse(sender, body).fold(
                             ifLeft = { reason -> Timber.d("SMS from $sender skipped: $reason") },
-                            ifRight = { trn -> notifier.show(trn, sender, body, receivedAt) },
+                            ifRight = { trn ->
+                                val dateTime = trn.resolveDateTime(receivedAt, ZoneId.systemDefault())
+                                val recorded = store.record(trn, sender, body, dateTime)
+                                if (recorded == null) {
+                                    Timber.d("SMS from $sender skipped: already recorded")
+                                } else {
+                                    notifier.show(recorded)
+                                }
+                            },
                         )
                     }
+                store.cleanUp()
             } catch (e: Exception) {
                 Timber.e(e, "Failed to process SMS")
             } finally {

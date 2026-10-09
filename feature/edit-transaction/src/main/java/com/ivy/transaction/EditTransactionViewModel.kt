@@ -30,6 +30,7 @@ import com.ivy.data.repository.TagRepository
 import com.ivy.data.repository.TransactionRepository
 import com.ivy.data.repository.mapper.TagMapper
 import com.ivy.data.repository.mapper.TransactionMapper
+import com.ivy.domain.SmsTransactionCallbacks
 import com.ivy.domain.features.Features
 import com.ivy.legacy.data.EditTransactionDisplayLoan
 import com.ivy.legacy.datamodel.Account
@@ -84,6 +85,7 @@ import javax.inject.Inject
 class EditTransactionViewModel @Inject constructor(
     @ApplicationContext
     private val context: Context,
+    private val smsTransactionCallbacks: SmsTransactionCallbacks,
     private val toaster: Toaster,
     private val loanDao: LoanDao,
     private val settingsDao: SettingsDao,
@@ -145,10 +147,12 @@ class EditTransactionViewModel @Inject constructor(
     private lateinit var baseUserCurrency: String
     private var tagSearchJob: Job? = null
     private val tagSearchDebounceTimeInMills: Long = 500
+    private var smsTransactionId: UUID? = null
 
     fun start(screen: EditTransactionScreen) {
         viewModelScope.launch {
             editMode = screen.initialTransactionId != null
+            smsTransactionId = screen.smsTransactionId.takeIf { !editMode }
 
             baseUserCurrency = baseCurrency()
 
@@ -752,6 +756,14 @@ class EditTransactionViewModel @Inject constructor(
 
                 loadedTransaction().toDomain(transactionMapper)?.let {
                     transactionRepo.save(it)
+                    smsTransactionId?.let { smsId ->
+                        smsTransactionCallbacks.onSaved(
+                            smsTransactionId = smsId,
+                            accountId = loadedTransaction().accountId,
+                            categoryId = loadedTransaction().categoryId,
+                        )
+                        smsTransactionId = null
+                    }
                 }
 
                 refreshWidget(WalletBalanceWidgetReceiver::class.java)
