@@ -157,6 +157,20 @@ class BankSmsParserTest {
                 date = LocalDate.of(2022, 10, 20),
             )
         ),
+        IciciCreditCardUpiDash(
+            sender = "JD-ICICIT-S",
+            body = "ICICI Bank Credit Card XX4321 debited for INR 448.00 on 09-Oct-26 for " +
+                "UPI-664800000001-CHAI POINT. To dispute call 18001080/SMS BLOCK 4321 to 9215676766",
+            expected = trn(
+                type = EXPENSE,
+                amount = 448.0,
+                counterparty = "CHAI POINT",
+                account = "4321",
+                bank = "ICICI Bank",
+                ref = "664800000001",
+                date = LocalDate.of(2026, 10, 9),
+            )
+        ),
         IciciAccountUpiDebit(
             sender = "JM-ICICIB",
             body = "ICICI Bank Acct XX123 debited for Rs 240.00 on 05-May-24; SWIGGY credited. " +

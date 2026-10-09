@@ -209,8 +209,12 @@ class BankSmsParser @Inject constructor() {
                 "\\s+is\\b|\\s+was\\b|\\s+avl|\\s+avbl|\\s+not\\b|\\(|\\.\\s|\\.$|,|;|$)"
         private val UPI_P2X_NAME = regex("upi/p2[am]/\\d+/([^/]+?)(?=/|\\s+not\\b|\\s+if\\b|\\.\\s|\\.$|$)")
 
+        // ICICI cards: "... debited for INR 448.00 on 09-Oct-26 for UPI-664800000001-CHAI POINT."
+        private val UPI_DASH_NAME = regex("\\bupi-\\d{6,}-$NAME(?=\\.\\s|\\.$|,|;|\\s+on\\b|\\s+to\\b|$)")
+
         private val EXPENSE_COUNTERPARTY = listOf(
             UPI_P2X_NAME,
+            UPI_DASH_NAME,
             // ICICI: "debited for Rs 240.00 on 05-May-24; SWIGGY credited."
             regex(";\\s*([^;.]+?)\\s+credited"),
             regex("\\b(?:to|at)\\s+(?:vpa\\s+)?$VPA"),
@@ -219,6 +223,7 @@ class BankSmsParser @Inject constructor() {
         )
         private val INCOME_COUNTERPARTY = listOf(
             UPI_P2X_NAME,
+            UPI_DASH_NAME,
             regex("\\b(?:from|by)\\s+(?:vpa\\s+)?$VPA"),
             regex(
                 "\\b(?:from|by)\\s+(?:(?:transfer|trf|neft|imps|rtgs|upi)\\s+(?:from\\s+)?)?$NAME$NAME_END"
