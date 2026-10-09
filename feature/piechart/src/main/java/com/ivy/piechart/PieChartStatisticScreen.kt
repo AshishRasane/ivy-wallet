@@ -1,92 +1,108 @@
 package com.ivy.piechart
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import com.ivy.base.legacy.Theme
 import com.ivy.base.model.TransactionType
 import com.ivy.data.model.Category
 import com.ivy.data.model.CategoryId
 import com.ivy.data.model.primitive.ColorInt
-import com.ivy.data.model.primitive.IconAsset
 import com.ivy.data.model.primitive.NotBlankTrimmedString
 import com.ivy.design.api.LocalTimeConverter
 import com.ivy.design.api.LocalTimeFormatter
 import com.ivy.design.api.LocalTimeProvider
-import com.ivy.design.l0_system.UI
-import com.ivy.design.l0_system.style
-import com.ivy.design.utils.thenIf
+import com.ivy.design.revamp.AmountFormat
+import com.ivy.design.revamp.RevampColors
+import com.ivy.design.revamp.RevampTopBar
+import com.ivy.design.revamp.RevampType
+import com.ivy.design.revamp.revampColors
+import com.ivy.legacy.IvyWalletPreview
+import com.ivy.legacy.data.model.Month
+import com.ivy.legacy.data.model.TimePeriod
 import com.ivy.legacy.ivyWalletCtx
-import com.ivy.legacy.utils.drawColoredShadow
-import com.ivy.legacy.utils.format
-import com.ivy.legacy.utils.horizontalSwipeListener
-import com.ivy.legacy.utils.rememberSwipeListenerState
-import com.ivy.navigation.EditTransactionScreen
 import com.ivy.navigation.PieChartStatisticScreen
+import com.ivy.navigation.ReportScreen
 import com.ivy.navigation.TransactionsScreen
 import com.ivy.navigation.navigation
 import com.ivy.navigation.screenScopedViewModel
-import com.ivy.ui.R
-import com.ivy.ui.rememberScrollPositionListState
-import com.ivy.wallet.ui.theme.GradientGreen
-import com.ivy.wallet.ui.theme.Gray
-import com.ivy.wallet.ui.theme.Green
-import com.ivy.wallet.ui.theme.IvyDark
-import com.ivy.wallet.ui.theme.IvyLight
-import com.ivy.wallet.ui.theme.Orange
-import com.ivy.wallet.ui.theme.Red
-import com.ivy.wallet.ui.theme.RedLight
-import com.ivy.wallet.ui.theme.White
-import com.ivy.wallet.ui.theme.components.BalanceRow
-import com.ivy.wallet.ui.theme.components.BalanceRowMini
-import com.ivy.wallet.ui.theme.components.CircleButtonFilledGradient
-import com.ivy.wallet.ui.theme.components.CloseButton
-import com.ivy.wallet.ui.theme.components.ItemIconM
-import com.ivy.wallet.ui.theme.components.ItemIconMDefaultIcon
-import com.ivy.wallet.ui.theme.components.IvyOutlinedButton
-import com.ivy.wallet.ui.theme.findContrastTextColor
-import com.ivy.wallet.ui.theme.gradientExpenses
 import com.ivy.wallet.ui.theme.modal.ChoosePeriodModal
-import com.ivy.wallet.ui.theme.pureBlur
-import com.ivy.wallet.ui.theme.toComposeColor
-import com.ivy.wallet.ui.theme.wallet.AmountCurrencyB1Row
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import java.util.UUID
+import kotlin.math.roundToInt
 
-@ExperimentalFoundationApi
+private val ScreenPadding = 20.dp
+private const val TintAlpha = 0.18f
+private const val FullCircle = 360f
+private const val StartAngle = -90f
+private const val SliceGap = 2f
+private const val MinBar = 0.02f
+private const val Percent = 100
+private const val MinSweep = 0.5f
+
+/** A category's share of the month, ready to draw. */
+@Immutable
+private data class Slice(
+    val name: String,
+    val amount: String,
+    val percent: String,
+    /** 0..1 of the total, for the donut */
+    val share: Float,
+    /** 0..1 of the largest category, for the bar */
+    val bar: Float,
+    val color: Color,
+    val categoryAmount: CategoryAmount,
+)
+
 @Composable
 fun BoxWithConstraintsScope.PieChartStatisticScreen(
     screen: PieChartStatisticScreen
@@ -104,132 +120,87 @@ fun BoxWithConstraintsScope.PieChartStatisticScreen(
     )
 }
 
-@ExperimentalFoundationApi
+@Suppress("LongMethod")
 @Composable
 private fun BoxWithConstraintsScope.UI(
     state: PieChartStatisticState,
     onEvent: (PieChartStatisticEvent) -> Unit = {}
 ) {
     val nav = navigation()
-    val lazyState = rememberScrollPositionListState(
-        key = "item_pie_chart_lazy_column"
-    )
-    val expanded = lazyState.firstVisibleItemIndex < 1
-    val percentExpanded by animateFloatAsState(
-        targetValue = if (expanded) 1f else 0f,
-        animationSpec = com.ivy.legacy.utils.springBounce(),
-        label = "percent expanded"
-    )
+    val colors = revampColors()
+    val isExpense = state.transactionType == TransactionType.EXPENSE
+    val slices = slices(state, colors)
+    // opened with a fixed list of transactions (from an account's transfers): no period or type to change
+    val fixedTransactions = state.showCloseButtonOnly
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
+            .background(colors.ground)
+            .statusBarsPadding()
             .navigationBarsPadding(),
-        state = lazyState
+        contentPadding = PaddingValues(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        stickyHeader {
-            Header(
-                transactionType = state.transactionType,
-                period = state.period,
-                percentExpanded = percentExpanded,
-                currency = state.baseCurrency,
-                amount = state.totalAmount,
-                onShowMonthModal = {
-                    onEvent(PieChartStatisticEvent.OnShowMonthModal(state.period))
-                },
-                onSelectNextMonth = {
-                    onEvent(PieChartStatisticEvent.OnSelectNextMonth)
-                },
-                onSelectPreviousMonth = {
-                    onEvent(PieChartStatisticEvent.OnSelectPreviousMonth)
-                },
-                showCloseButtonOnly = state.showCloseButtonOnly,
-                onClose = {
-                    nav.back()
-                },
-                onAdd = { trnType ->
-                    nav.navigateTo(
-                        EditTransactionScreen(
-                            initialTransactionId = null,
-                            type = trnType
-                        )
-                    )
-                }
-            )
-        }
-
         item {
-            Spacer(Modifier.height(20.dp))
-
-            Text(
-                modifier = Modifier
-                    .padding(start = 32.dp)
-                    .testTag("piechart_title"),
-                text = if (state.transactionType == TransactionType.EXPENSE) {
-                    stringResource(R.string.expenses)
-                } else {
-                    stringResource(R.string.income)
-                },
-                style = UI.typo.b1.style(
-                    fontWeight = FontWeight.ExtraBold
+            RevampTopBar(title = "Reports", onBack = { nav.back() })
+        }
+        if (!fixedTransactions) {
+            item {
+                PeriodSwitcher(
+                    period = state.period,
+                    onPrevious = { onEvent(PieChartStatisticEvent.OnSelectPreviousMonth) },
+                    onNext = { onEvent(PieChartStatisticEvent.OnSelectNextMonth) },
+                    onClick = { onEvent(PieChartStatisticEvent.OnShowMonthModal(state.period)) },
                 )
-            )
-
-            BalanceRow(
-                modifier = Modifier
-                    .padding(start = 32.dp, end = 16.dp)
-                    .testTag("piechart_total_amount")
-                    .alpha(percentExpanded),
-                currency = state.baseCurrency,
-                balance = state.totalAmount,
-                currencyUpfront = false,
-                currencyFontSize = 30.sp
-            )
-        }
-
-        item {
-            Spacer(Modifier.height(40.dp))
-
-            PieChart(
-                type = state.transactionType,
-                categoryAmounts = state.categoryAmounts,
-                selectedCategory = state.selectedCategory,
-                onCategoryClick = { clickedCategory ->
-                    onEvent(PieChartStatisticEvent.OnCategoryClicked(clickedCategory))
-                }
-            )
-
-            Spacer(Modifier.height(48.dp))
-        }
-
-        itemsIndexed(
-            items = state.categoryAmounts
-        ) { index, item ->
-            if (item.amount != 0.0) {
-                if (index != 0) {
-                    Spacer(Modifier.height(16.dp))
-                }
-
-                CategoryAmountCard(
-                    categoryAmount = item,
-                    currency = state.baseCurrency,
-                    totalAmount = state.totalAmount,
-                    selectedCategory = state.selectedCategory
-                ) {
-                    nav.navigateTo(
-                        TransactionsScreen(
-                            categoryId = item.category?.id?.value,
-                            unspecifiedCategory = item.isCategoryUnspecified,
-                            accountIdFilterList = state.accountIdFilterList,
-                            transactions = item.associatedTransactions
-                        )
-                    )
-                }
+            }
+            item {
+                TypeSwitch(
+                    isExpense = isExpense,
+                    onSelect = { onEvent(PieChartStatisticEvent.OnTypeChanged(it)) },
+                )
             }
         }
-
         item {
-            Spacer(Modifier.height(160.dp)) // scroll hack
+            DonutCard(
+                slices = slices,
+                label = if (isExpense) "Spent" else "Earned",
+                total = AmountFormat.format(state.totalAmount, state.baseCurrency),
+                totalColor = if (isExpense) colors.expense else colors.income,
+                count = when (state.transactionCount) {
+                    0 -> if (isExpense) "No expenses" else "No income"
+                    1 -> "1 transaction"
+                    else -> "${state.transactionCount} transactions"
+                },
+                comparison = state.comparison,
+            )
+        }
+        if (slices.isNotEmpty()) {
+            item {
+                CategoryList(
+                    slices = slices,
+                    onClick = { item ->
+                        nav.navigateTo(
+                            TransactionsScreen(
+                                categoryId = item.category?.id?.value,
+                                unspecifiedCategory = item.isCategoryUnspecified,
+                                accountIdFilterList = state.accountIdFilterList,
+                                transactions = item.associatedTransactions
+                            )
+                        )
+                    },
+                )
+            }
+        }
+        if (state.trend.isNotEmpty()) {
+            item {
+                TrendCard(bars = state.trend, average = state.trendAverage, isExpense = isExpense)
+            }
+        }
+        if (!fixedTransactions && state.accountIdFilterList.isEmpty()) {
+            item {
+                CustomReportRow(onClick = { nav.navigateTo(ReportScreen) })
+            }
         }
     }
 
@@ -243,415 +214,424 @@ private fun BoxWithConstraintsScope.UI(
     }
 }
 
+private fun slices(state: PieChartStatisticState, colors: RevampColors): ImmutableList<Slice> {
+    val visible = state.categoryAmounts.filter { it.amount > 0.0 }.sortedByDescending { it.amount }
+    val total = visible.sumOf { it.amount }.takeIf { it > 0.0 } ?: return persistentListOf()
+    val largest = visible.first().amount
+    return visible.map { item ->
+        val share = item.amount / total
+        Slice(
+            name = item.category?.name?.value ?: "Unspecified",
+            amount = AmountFormat.format(item.amount, state.baseCurrency),
+            percent = "${(share * Percent).roundToInt().coerceAtLeast(1)}%",
+            share = share.toFloat(),
+            bar = (item.amount / largest).toFloat().coerceAtLeast(MinBar),
+            color = item.category?.color?.value?.let { Color(it) } ?: colors.inkMuted,
+            categoryAmount = item,
+        )
+    }.toImmutableList()
+}
+
 @Composable
-private fun Header(
-    transactionType: TransactionType,
-    period: com.ivy.legacy.data.model.TimePeriod,
-    percentExpanded: Float,
-
-    currency: String,
-    amount: Double,
-
-    onShowMonthModal: () -> Unit,
-    onSelectNextMonth: () -> Unit,
-    onSelectPreviousMonth: () -> Unit,
-
-    onClose: () -> Unit,
-    onAdd: (TransactionType) -> Unit,
-    showCloseButtonOnly: Boolean = false
+private fun PeriodSwitcher(
+    period: TimePeriod,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onClick: () -> Unit,
 ) {
+    val colors = revampColors()
+    val ivyContext = ivyWalletCtx()
+    val label = period.toDisplayShort(
+        startDateOfMonth = ivyContext.startDayOfMonth,
+        timeConverter = LocalTimeConverter.current,
+        timeProvider = LocalTimeProvider.current,
+        timeFormatter = LocalTimeFormatter.current,
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(pureBlur())
-            .statusBarsPadding()
-            .padding(top = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = ScreenPadding - 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Spacer(Modifier.width(20.dp))
-
-        CloseButton {
-            onClose()
+        IconButton(onClick = onPrevious) {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous month", tint = colors.ink)
         }
-
-        // Balance mini row
-        if (percentExpanded < 1f) {
-            Spacer(Modifier.width(12.dp))
-
-            BalanceRowMini(
-                modifier = Modifier
-                    .alpha(1f - percentExpanded),
-                currency = currency,
-                balance = amount,
-            )
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .heightIn(min = 44.dp)
+                .clip(CircleShape)
+                .background(colors.surface)
+                .border(1.dp, colors.border, CircleShape)
+                .clickable(role = Role.Button, onClickLabel = "Choose period", onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(text = label, style = RevampType.body, color = colors.ink)
         }
-
-        if (!showCloseButtonOnly) {
-            Spacer(Modifier.weight(1f))
-
-            IvyOutlinedButton(
-                modifier = Modifier.horizontalSwipeListener(
-                    sensitivity = 75,
-                    state = rememberSwipeListenerState(),
-                    onSwipeLeft = {
-                        onSelectNextMonth()
-                    },
-                    onSwipeRight = {
-                        onSelectPreviousMonth()
-                    }
-                ),
-                iconStart = R.drawable.ic_calendar,
-                text = period.toDisplayShort(
-                    startDateOfMonth = ivyWalletCtx().startDayOfMonth,
-                    timeConverter = LocalTimeConverter.current,
-                    timeProvider = LocalTimeProvider.current,
-                    timeFormatter = LocalTimeFormatter.current,
-
-                    ),
-            ) {
-                onShowMonthModal()
-            }
-
-            if (percentExpanded > 0f) {
-                Spacer(Modifier.width(12.dp))
-
-                val backgroundGradient = if (transactionType == TransactionType.EXPENSE) {
-                    gradientExpenses()
-                } else {
-                    GradientGreen
-                }
-                CircleButtonFilledGradient(
-                    modifier = Modifier
-                        .thenIf(percentExpanded == 1f) {
-                            drawColoredShadow(backgroundGradient.startColor)
-                        }
-                        .alpha(percentExpanded)
-                        .size(com.ivy.legacy.utils.lerp(1, 40, percentExpanded).dp),
-                    iconPadding = 4.dp,
-                    icon = R.drawable.ic_plus,
-                    backgroundGradient = backgroundGradient,
-                    tint = if (transactionType == TransactionType.EXPENSE) {
-                        UI.colors.pure
-                    } else {
-                        White
-                    }
-                ) {
-                    onAdd(transactionType)
-                }
-            }
-
-            Spacer(Modifier.width(20.dp))
+        IconButton(onClick = onNext) {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next month", tint = colors.ink)
         }
     }
 }
 
 @Composable
-private fun CategoryAmountCard(
-    categoryAmount: CategoryAmount,
-    currency: String,
-    totalAmount: Double,
-
-    selectedCategory: SelectedCategory?,
-
-    onClick: () -> Unit
-) {
-    val category = categoryAmount.category
-    val amount = categoryAmount.amount
-
-    val categoryColor =
-        category?.color?.value?.toComposeColor() ?: Gray // Unspecified category = Gray
-    val selectedState = when {
-        selectedCategory == null -> {
-            // no selectedCategory
-            false
-        }
-
-        categoryAmount.category == selectedCategory.category -> {
-            // selectedCategory && we're selected
-            true
-        }
-
-        else -> false
-    }
-    val backgroundColor = if (selectedState) categoryColor else UI.colors.medium
-
-    val textColor = findContrastTextColor(
-        backgroundColor = backgroundColor
-    )
-
+private fun TypeSwitch(isExpense: Boolean, onSelect: (TransactionType) -> Unit) {
+    val colors = revampColors()
     Row(
         modifier = Modifier
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = ScreenPadding)
             .fillMaxWidth()
-            .thenIf(selectedState) {
-                drawColoredShadow(backgroundColor)
-            }
-            .clip(UI.shapes.r3)
-            .background(backgroundColor, UI.shapes.r3)
-            .clickable {
-                onClick()
-            }
-            .padding(vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .clip(RoundedCornerShape(24.dp))
+            .background(colors.surface)
+            .border(1.dp, colors.border, RoundedCornerShape(24.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Spacer(Modifier.width(20.dp))
+        listOf(TransactionType.EXPENSE to "Expenses", TransactionType.INCOME to "Income").forEach { (type, label) ->
+            val selected = isExpense == (type == TransactionType.EXPENSE)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 40.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(if (selected) colors.ink else Color.Transparent)
+                    .clickable(role = Role.RadioButton) { onSelect(type) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = label, style = RevampType.bodyStrong, color = if (selected) colors.surface else colors.ink)
+            }
+        }
+    }
+}
 
-        ItemIconM(
-            modifier = Modifier.background(categoryColor, CircleShape),
-            iconName = category?.icon?.id,
-            tint = findContrastTextColor(categoryColor),
-            iconContentScale = ContentScale.None,
-            Default = {
-                ItemIconMDefaultIcon(
-                    modifier = Modifier.background(categoryColor, CircleShape),
-                    iconName = category?.icon?.id,
-                    defaultIcon = R.drawable.ic_custom_category_m,
-                    tint = findContrastTextColor(categoryColor)
+@Suppress("LongParameterList")
+@Composable
+private fun DonutCard(
+    slices: ImmutableList<Slice>,
+    label: String,
+    total: String,
+    totalColor: Color,
+    count: String,
+    comparison: String?,
+) {
+    val colors = revampColors()
+    Column(
+        modifier = Modifier
+            .padding(horizontal = ScreenPadding)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(colors.surface)
+            .padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(modifier = Modifier.size(200.dp), contentAlignment = Alignment.Center) {
+            Donut(slices = slices, empty = colors.divider)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(text = label, style = RevampType.label, color = colors.inkMuted)
+                Text(
+                    modifier = Modifier.testTag("piechart_total_amount"),
+                    text = total,
+                    style = RevampType.title,
+                    color = totalColor,
+                )
+                Text(text = count, style = RevampType.caption, color = colors.inkMuted)
+            }
+        }
+        if (comparison != null) {
+            Text(text = comparison, style = RevampType.label, color = colors.inkMuted)
+        }
+    }
+}
+
+@Composable
+private fun Donut(slices: ImmutableList<Slice>, empty: Color) {
+    val description = slices.joinToString { "${it.name} ${it.percent}" }
+    Canvas(
+        modifier = Modifier
+            .size(200.dp)
+            .semantics { contentDescription = description }
+    ) {
+        val stroke = 22.dp.toPx()
+        val inset = stroke / 2 + 2.dp.toPx()
+        val arcSize = Size(size.width - inset * 2, size.height - inset * 2)
+        val topLeft = Offset(inset, inset)
+        drawArc(empty, 0f, FullCircle, useCenter = false, topLeft = topLeft, size = arcSize, style = Stroke(stroke))
+        val gap = if (slices.size > 1) SliceGap else 0f
+        var start = StartAngle
+        slices.forEach { slice ->
+            val sweep = slice.share * FullCircle
+            drawArc(
+                color = slice.color,
+                startAngle = start,
+                sweepAngle = (sweep - gap).coerceAtLeast(MinSweep),
+                useCenter = false,
+                topLeft = topLeft,
+                size = arcSize,
+                style = Stroke(stroke),
+            )
+            start += sweep
+        }
+    }
+}
+
+@Composable
+private fun CategoryList(slices: ImmutableList<Slice>, onClick: (CategoryAmount) -> Unit) {
+    val colors = revampColors()
+    Column(
+        modifier = Modifier.padding(horizontal = ScreenPadding),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Text(
+            modifier = Modifier.padding(horizontal = 4.dp),
+            text = "By category",
+            style = RevampType.caption,
+            color = colors.inkMuted,
+        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(colors.surface)
+        ) {
+            slices.forEachIndexed { index, slice ->
+                if (index > 0) HorizontalDivider(color = colors.divider)
+                CategoryRow(slice = slice, onClick = { onClick(slice.categoryAmount) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun CategoryRow(slice: Slice, onClick: () -> Unit) {
+    val colors = revampColors()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(slice.color.copy(alpha = TintAlpha)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .clip(CircleShape)
+                    .background(slice.color)
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    modifier = Modifier.weight(1f),
+                    text = slice.name,
+                    style = RevampType.bodyStrong,
+                    color = colors.ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(text = slice.percent, style = RevampType.label, color = colors.inkMuted)
+                Spacer(Modifier.width(8.dp))
+                Text(text = slice.amount, style = RevampType.bodyStrong, color = colors.ink)
+            }
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(CircleShape)
+                    .background(colors.divider)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(slice.bar)
+                        .height(6.dp)
+                        .clip(CircleShape)
+                        .background(slice.color)
                 )
             }
-        )
+        }
+    }
+}
 
-        Spacer(Modifier.width(16.dp))
-
-        Column(
-            modifier = Modifier.weight(1f)
+@Composable
+private fun TrendCard(bars: ImmutableList<TrendBar>, average: String?, isExpense: Boolean) {
+    val colors = revampColors()
+    val accent = if (isExpense) colors.expense else colors.income
+    val soft = if (isExpense) colors.expenseTint else colors.incomeTint
+    Column(
+        modifier = Modifier
+            .padding(horizontal = ScreenPadding)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(colors.surface)
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                modifier = Modifier.weight(1f),
+                text = "Last ${bars.size} months",
+                style = RevampType.bodyStrong,
+                color = colors.ink,
+            )
+            if (average != null) {
+                Text(text = average, style = RevampType.label, color = colors.inkMuted)
+            }
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(132.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Bottom,
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
+            bars.forEach { bar ->
+                Column(
                     modifier = Modifier
                         .weight(1f)
-                        .padding(end = 16.dp),
-                    text = category?.name?.value ?: stringResource(R.string.unspecified),
-                    style = UI.typo.b2.style(
-                        color = textColor,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Start
+                        .fillMaxHeight()
+                        .semantics { contentDescription = "${bar.month} ${bar.amount}" },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.Bottom),
+                ) {
+                    Text(
+                        text = bar.amount,
+                        style = RevampType.caption,
+                        color = if (bar.current) colors.ink else colors.inkMuted,
+                        maxLines = 1,
                     )
-                )
-
-                PercentText(
-                    amount = amount,
-                    totalAmount = totalAmount,
-                    selectedState = selectedState,
-                    contrastColor = textColor
-                )
-
-                Spacer(Modifier.width(24.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height((BarMaxHeight * bar.fraction).coerceAtLeast(BarMinHeight).dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (bar.current) accent else soft)
+                    )
+                    Text(
+                        text = bar.month,
+                        style = RevampType.caption,
+                        color = if (bar.current) colors.ink else colors.inkMuted,
+                    )
+                }
             }
-
-            Spacer(Modifier.height(4.dp))
-
-            AmountCurrencyB1Row(
-                amount = amount,
-                currency = currency,
-                textColor = textColor,
-                amountFontWeight = FontWeight.ExtraBold
-            )
         }
     }
 }
 
+private const val BarMaxHeight = 80f
+private const val BarMinHeight = 4f
+
 @Composable
-private fun PercentText(
-    amount: Double,
-    totalAmount: Double,
-    selectedState: Boolean,
-    contrastColor: Color
-) {
-    Text(
-        text = if (totalAmount != 0.0) {
-            stringResource(R.string.percent, ((amount / totalAmount) * 100).format(2))
-        } else {
-            stringResource(R.string.percent, "0")
-        },
-        style = UI.typo.nB2.style(
-            color = if (selectedState) contrastColor else UI.colors.pureInverse,
-            fontWeight = FontWeight.Normal
+private fun CustomReportRow(onClick: () -> Unit) {
+    val colors = revampColors()
+    Row(
+        modifier = Modifier
+            .padding(horizontal = ScreenPadding)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(colors.surface)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(colors.primaryTint),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.FilterAlt, contentDescription = null, tint = colors.onPrimaryTint)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = "Custom report", style = RevampType.bodyStrong, color = colors.ink)
+            Text(
+                text = "Filter by account, category, tags or dates · export CSV",
+                style = RevampType.label,
+                color = colors.inkMuted,
+            )
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = colors.inkMuted)
+    }
+}
+
+@Suppress("MagicNumber")
+private fun previewState(type: TransactionType): PieChartStatisticState {
+    fun category(name: String, color: Long) = Category(
+        id = CategoryId(UUID.nameUUIDFromBytes(name.toByteArray())),
+        name = NotBlankTrimmedString.unsafe(name),
+        color = ColorInt(Color(color).toArgb()),
+        icon = null,
+        orderNum = 0.0,
+    )
+    val expense = type == TransactionType.EXPENSE
+    val amounts = if (expense) {
+        persistentListOf(
+            CategoryAmount(category("Food & Drinks", 0xFFA3410B), 7420.0),
+            CategoryAmount(category("Shopping", 0xFF6B2BB0), 6240.0),
+            CategoryAmount(category("Bills", 0xFF7A5A00), 5860.0),
+            CategoryAmount(category("Transport", 0xFF1F4FA8), 3911.0),
+            CategoryAmount(category("Groceries", 0xFF0B7A55), 3240.0),
+            CategoryAmount(null, 1760.0, isCategoryUnspecified = true),
         )
+    } else {
+        persistentListOf(
+            CategoryAmount(category("Salary", 0xFF0B7A55), 85000.0),
+            CategoryAmount(category("Refunds", 0xFF1F4FA8), 1100.0),
+        )
+    }
+    val months = ReportMath.lastMonths(java.time.YearMonth.of(2026, 10), 6)
+    val totals = if (expense) {
+        listOf(31200.0, 27450.0, 35800.0, 29900.0, 32300.0, 28431.0)
+    } else {
+        listOf(85000.0, 85600.0, 85000.0, 91200.0, 85300.0, 86100.0)
+    }
+    return PieChartStatisticState(
+        transactionType = type,
+        period = TimePeriod(month = Month(10, "October"), year = 2026),
+        baseCurrency = "INR",
+        totalAmount = amounts.sumOf { it.amount },
+        categoryAmounts = amounts,
+        selectedCategory = null,
+        accountIdFilterList = persistentListOf(),
+        showCloseButtonOnly = false,
+        filterExcluded = false,
+        transactions = persistentListOf(),
+        choosePeriodModal = null,
+        trend = ReportMath.trend(months, totals, "INR").toImmutableList(),
+        trendAverage = "5-month avg ₹31.3k",
+        comparison = ReportMath.comparison(totals[5], totals[4], months[4]),
+        transactionCount = if (expense) 64 else 2,
     )
 }
 
-@ExperimentalFoundationApi
 @Preview
 @Composable
-private fun Preview_Expense() {
-    com.ivy.legacy.IvyWalletPreview {
-        val state = PieChartStatisticState(
-            transactionType = TransactionType.EXPENSE,
-            period = com.ivy.legacy.data.model.TimePeriod.currentMonth(
-                startDayOfMonth = 1
-            ), // preview
-            baseCurrency = "BGN",
-            totalAmount = 1828.0,
-            categoryAmounts = persistentListOf(
-                CategoryAmount(
-                    category = Category(
-                        name = NotBlankTrimmedString.unsafe("Bills"),
-                        color = ColorInt(Green.toArgb()),
-                        icon = IconAsset.unsafe("bills"),
-                        id = CategoryId(UUID.randomUUID()),
-                        orderNum = 0.0,
-                    ),
-                    amount = 791.0
-                ),
-                CategoryAmount(
-                    category = null,
-                    amount = 497.0,
-                    isCategoryUnspecified = true
-                ),
-                CategoryAmount(
-                    category = Category(
-                        name = NotBlankTrimmedString.unsafe("Shisha"),
-                        color = ColorInt(Orange.toArgb()),
-                        icon = IconAsset.unsafe("trees"),
-                        id = CategoryId(UUID.randomUUID()),
-                        orderNum = 0.0,
-                    ),
-                    amount = 411.93
-                ),
-                CategoryAmount(
-                    category = Category(
-                        name = NotBlankTrimmedString.unsafe("Food & Drink"),
-                        color = ColorInt(IvyDark.toArgb()),
-                        icon = null,
-                        id = CategoryId(UUID.randomUUID()),
-                        orderNum = 0.0,
-                    ),
-                    amount = 260.03
-                ),
-                CategoryAmount(
-                    category = Category(
-                        name = NotBlankTrimmedString.unsafe("Gifts"),
-                        color = ColorInt(RedLight.toArgb()),
-                        icon = null,
-                        id = CategoryId(UUID.randomUUID()),
-                        orderNum = 0.0,
-                    ),
-                    amount = 160.0
-                ),
-                CategoryAmount(
-                    category = Category(
-                        name = NotBlankTrimmedString.unsafe("Clothes & Jewelery Fancy"),
-                        color = ColorInt(Red.toArgb()),
-                        icon = null,
-                        id = CategoryId(UUID.randomUUID()),
-                        orderNum = 0.0,
-                    ),
-                    amount = 2.0
-                ),
-                CategoryAmount(
-                    category = Category(
-                        name = NotBlankTrimmedString.unsafe("Finances, Burocracy & Governance"),
-                        color = ColorInt(IvyLight.toArgb()),
-                        icon = IconAsset.unsafe("work"),
-                        id = CategoryId(UUID.randomUUID()),
-                        orderNum = 0.0,
-                    ),
-                    amount = 2.0
-                ),
-            ),
-            selectedCategory = null,
-            accountIdFilterList = persistentListOf(),
-            choosePeriodModal = null,
-            filterExcluded = false,
-            showCloseButtonOnly = false,
-            transactions = persistentListOf()
-        )
-
-        UI(state = state)
+private fun Preview_Expense(theme: Theme = Theme.LIGHT) {
+    IvyWalletPreview(theme) {
+        UI(state = previewState(TransactionType.EXPENSE))
     }
 }
 
-@ExperimentalFoundationApi
 @Preview
 @Composable
-private fun Preview_Income() {
-    com.ivy.legacy.IvyWalletPreview {
-        val state = PieChartStatisticState(
-            transactionType = TransactionType.INCOME,
-            period = com.ivy.legacy.data.model.TimePeriod.currentMonth(
-                startDayOfMonth = 1
-            ), // preview
-            baseCurrency = "BGN",
-            totalAmount = 1828.0,
-            categoryAmounts = persistentListOf(
-                CategoryAmount(
-                    category = Category(
-                        name = NotBlankTrimmedString.unsafe("Bills"),
-                        color = ColorInt(Green.toArgb()),
-                        icon = IconAsset.unsafe("bills"),
-                        id = CategoryId(UUID.randomUUID()),
-                        orderNum = 0.0,
-                    ),
-                    amount = 791.0
-                ),
-                CategoryAmount(
-                    category = null,
-                    amount = 497.0,
-                    isCategoryUnspecified = true
-                ),
-                CategoryAmount(
-                    category = Category(
-                        name = NotBlankTrimmedString.unsafe("Shisha"),
-                        color = ColorInt(Orange.toArgb()),
-                        icon = IconAsset.unsafe("trees"),
-                        id = CategoryId(UUID.randomUUID()),
-                        orderNum = 0.0,
-                    ),
-                    amount = 411.93
-                ),
-                CategoryAmount(
-                    category = Category(
-                        name = NotBlankTrimmedString.unsafe("Food & Drink"),
-                        color = ColorInt(IvyDark.toArgb()),
-                        icon = null,
-                        id = CategoryId(UUID.randomUUID()),
-                        orderNum = 0.0,
-                    ),
-                    amount = 260.03
-                ),
-                CategoryAmount(
-                    category = Category(
-                        name = NotBlankTrimmedString.unsafe("Gifts"),
-                        color = ColorInt(RedLight.toArgb()),
-                        icon = null,
-                        id = CategoryId(UUID.randomUUID()),
-                        orderNum = 0.0,
-                    ),
-                    amount = 160.0
-                ),
-                CategoryAmount(
-                    category = Category(
-                        name = NotBlankTrimmedString.unsafe("Clothes & Jewelery Fancy"),
-                        color = ColorInt(Red.toArgb()),
-                        icon = null,
-                        id = CategoryId(UUID.randomUUID()),
-                        orderNum = 0.0,
-                    ),
-                    amount = 2.0
-                ),
-                CategoryAmount(
-                    category = Category(
-                        name = NotBlankTrimmedString.unsafe("Finances, Burocracy & Governance"),
-                        color = ColorInt(IvyLight.toArgb()),
-                        icon = IconAsset.unsafe("work"),
-                        id = CategoryId(UUID.randomUUID()),
-                        orderNum = 0.0,
-                    ),
-                    amount = 2.0
-                ),
-            ),
-            selectedCategory = null,
-            accountIdFilterList = persistentListOf(),
-            choosePeriodModal = null,
-            filterExcluded = false,
-            showCloseButtonOnly = false,
-            transactions = persistentListOf()
-        )
-
-        UI(state = state)
+private fun Preview_Income(theme: Theme = Theme.LIGHT) {
+    IvyWalletPreview(theme) {
+        UI(state = previewState(TransactionType.INCOME))
     }
+}
+
+/** For screenshot testing */
+@Composable
+fun PieChartStatisticUiTest(isDark: Boolean, income: Boolean = false) {
+    val theme = if (isDark) Theme.DARK else Theme.LIGHT
+    if (income) Preview_Income(theme) else Preview_Expense(theme)
 }

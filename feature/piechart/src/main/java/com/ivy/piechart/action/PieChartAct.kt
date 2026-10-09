@@ -104,7 +104,7 @@ class PieChartAct @Inject constructor(
             )
         }
 
-        Pair(incomeExpenseTransfer, categoryAmounts())
+        Triple(incomeExpenseTransfer, categoryAmounts(), transactions.count { trn -> trn.type == type })
     } then {
         val totalAmount = calculateTotalAmount(
             type = type,
@@ -114,9 +114,9 @@ class PieChartAct @Inject constructor(
 
         val catAmountList = it.second
 
-        Pair(totalAmount, catAmountList)
+        Triple(totalAmount, catAmountList, it.third)
     } then {
-        Output(it.first.toDouble(), it.second.toImmutableList())
+        Output(it.first.toDouble(), it.second.toImmutableList(), transactionCount = it.third)
     }
 
     @Pure
@@ -293,5 +293,10 @@ class PieChartAct @Inject constructor(
         val existingTransactions: List<Transaction> = emptyList(),
     )
 
-    data class Output(val totalAmount: Double, val categoryAmounts: ImmutableList<CategoryAmount>)
+    data class Output(
+        val totalAmount: Double,
+        val categoryAmounts: ImmutableList<CategoryAmount>,
+        /** transactions of the chosen type in the range */
+        val transactionCount: Int,
+    )
 }

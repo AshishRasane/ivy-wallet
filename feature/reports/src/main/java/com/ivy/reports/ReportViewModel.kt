@@ -7,6 +7,7 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.viewModelScope
@@ -44,6 +45,7 @@ import com.ivy.legacy.utils.scopedIOThread
 import com.ivy.legacy.utils.timeNowUTC
 import com.ivy.legacy.utils.toLowerCaseLocal
 import com.ivy.legacy.utils.uiThread
+import com.ivy.transactions.revamp.LegacyHistoryRows
 import com.ivy.ui.ComposeViewModel
 import com.ivy.ui.R
 import com.ivy.wallet.domain.action.account.AccountsAct
@@ -151,6 +153,16 @@ class ReportViewModel @Inject constructor(
             filter = filter,
             filterOverlayVisible = filterOverlayVisible,
             history = history,
+            historyGroups = remember(history, accounts, categories, baseCurrency) {
+                LegacyHistoryRows.group(
+                    history = history,
+                    accounts = accounts,
+                    categories = categories,
+                    baseCurrency = baseCurrency,
+                    today = timeProvider.localDateNow(),
+                    focusAccountId = null,
+                )
+            },
             income = income,
             loading = loading,
             overdueExpanded = overdueExpanded,

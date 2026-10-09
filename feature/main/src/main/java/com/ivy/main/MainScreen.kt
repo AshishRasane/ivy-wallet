@@ -3,7 +3,7 @@ package com.ivy.main
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.ivy.main.more.MoreTab
-import com.ivy.navigation.ReportScreen
+import com.ivy.navigation.PieChartStatisticScreen
 import com.ivy.navigation.Screen
 import com.ivy.transactions.revamp.TransactionsTab
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -64,7 +64,7 @@ private fun BoxWithConstraintsScope.UI(
         tab = tab,
         onSelectTab = selectTab,
         onAdd = { addSheetVisible = true },
-        onReports = { nav.navigateTo(ReportScreen) },
+        onReports = { nav.navigateTo(PieChartStatisticScreen(type = TransactionType.EXPENSE)) },
     )
 
     if (addSheetVisible) {

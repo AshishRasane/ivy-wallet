@@ -1,81 +1,87 @@
 package com.ivy.reports
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material.icons.filled.IosShare
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ivy.base.legacy.Theme
-import com.ivy.base.legacy.stringRes
 import com.ivy.base.model.TransactionType
 import com.ivy.data.model.Category
 import com.ivy.data.model.CategoryId
 import com.ivy.data.model.primitive.ColorInt
 import com.ivy.data.model.primitive.IconAsset
 import com.ivy.data.model.primitive.NotBlankTrimmedString
-import com.ivy.design.l0_system.UI
-import com.ivy.design.l0_system.style
+import com.ivy.design.revamp.AmountFormat
+import com.ivy.design.revamp.RevampCircleButton
+import com.ivy.design.revamp.RevampTopBar
+import com.ivy.design.revamp.RevampType
+import com.ivy.design.revamp.revampColors
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.data.AppBaseData
 import com.ivy.legacy.data.LegacyDueSection
 import com.ivy.legacy.datamodel.Account
-import com.ivy.legacy.ui.component.IncomeExpensesCards
-import com.ivy.legacy.ui.component.transaction.TransactionsDividerLine
-import com.ivy.legacy.ui.component.transaction.transactions
+import com.ivy.legacy.ui.component.transaction.dueSections
 import com.ivy.legacy.utils.clickableNoIndication
 import com.ivy.legacy.utils.rememberInteractionSource
+import com.ivy.navigation.EditTransactionScreen
 import com.ivy.navigation.PieChartStatisticScreen
 import com.ivy.navigation.ReportScreen
 import com.ivy.navigation.navigation
+import com.ivy.transactions.revamp.TransactionDayGroup
 import com.ivy.ui.R
 import com.ivy.ui.rememberScrollPositionListState
 import com.ivy.wallet.domain.pure.data.IncomeExpensePair
-import com.ivy.wallet.ui.theme.Gray
 import com.ivy.wallet.ui.theme.Green
 import com.ivy.wallet.ui.theme.GreenDark
 import com.ivy.wallet.ui.theme.GreenLight
 import com.ivy.wallet.ui.theme.IvyDark
-import com.ivy.wallet.ui.theme.Orange
 import com.ivy.wallet.ui.theme.Purple1Dark
 import com.ivy.wallet.ui.theme.Red3Light
-import com.ivy.wallet.ui.theme.components.BackButtonType
-import com.ivy.wallet.ui.theme.components.BalanceRow
-import com.ivy.wallet.ui.theme.components.CircleButtonFilled
-import com.ivy.wallet.ui.theme.components.IvyButton
-import com.ivy.wallet.ui.theme.components.IvyCheckboxWithText
-import com.ivy.wallet.ui.theme.components.IvyIcon
-import com.ivy.wallet.ui.theme.components.IvyOutlinedButton
-import com.ivy.wallet.ui.theme.components.IvyToolbar
-import com.ivy.wallet.ui.theme.pureBlur
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import java.util.UUID
 
-@ExperimentalFoundationApi
+private val ScreenPadding = 20.dp
+private const val ScrimAlpha = 0.85f
+
 @Composable
 fun BoxWithConstraintsScope.ReportScreen(
-    screen: ReportScreen
+    @Suppress("UnusedParameter") screen: ReportScreen
 ) {
     val viewModel: ReportViewModel = viewModel()
     val state = viewModel.uiState()
@@ -86,152 +92,96 @@ fun BoxWithConstraintsScope.ReportScreen(
     )
 }
 
-@ExperimentalFoundationApi
+@Suppress("LongMethod")
 @Composable
 private fun BoxWithConstraintsScope.UI(
     state: ReportScreenState = ReportScreenState(),
     onEventHandler: (ReportScreenEvent) -> Unit = {}
 ) {
-    val legacyTransactions = state.transactions
     val nav = navigation()
     val context = LocalContext.current
-
+    val colors = revampColors()
     val listState = rememberScrollPositionListState(key = "reports")
+    val openPieChart = { type: TransactionType ->
+        if (state.transactions.isNotEmpty()) {
+            nav.navigateTo(
+                PieChartStatisticScreen(
+                    type = type,
+                    transactions = state.transactions.toImmutableList(),
+                    accountList = state.accountIdFilters,
+                    treatTransfersAsIncomeExpense = state.treatTransfersAsIncExp
+                )
+            )
+        }
+    }
+    val showFilter = { onEventHandler(ReportScreenEvent.OnFilterOverlayVisible(filterOverlayVisible = true)) }
 
     if (state.loading) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .zIndex(1000f)
-                .background(pureBlur())
+                .background(colors.ground.copy(alpha = ScrimAlpha))
                 .clickableNoIndication(rememberInteractionSource()) {
                     // consume clicks
                 },
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = stringResource(R.string.generating_report),
-                style = UI.typo.b1.style(
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Orange
-                )
-            )
+            Text(text = stringResource(R.string.generating_report), style = RevampType.title, color = colors.ink)
         }
     }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
+            .background(colors.ground)
             .systemBarsPadding(),
-        state = listState
+        state = listState,
+        contentPadding = PaddingValues(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        stickyHeader {
-            Toolbar(
-                onExport = {
-                    onEventHandler.invoke(ReportScreenEvent.OnExport(context = context))
-                },
-                onFilter = {
-                    onEventHandler.invoke(
-                        ReportScreenEvent.OnFilterOverlayVisible(
-                            filterOverlayVisible = true
-                        )
+        item {
+            RevampTopBar(title = "Custom report", onBack = { nav.back() }) {
+                if (state.filter != null) {
+                    RevampCircleButton(
+                        icon = Icons.Filled.IosShare,
+                        contentDescription = "Export to CSV",
+                        onClick = { onEventHandler(ReportScreenEvent.OnExport(context = context)) },
                     )
                 }
-            )
+                RevampCircleButton(icon = Icons.Filled.FilterAlt, contentDescription = "Filter", onClick = showFilter)
+            }
         }
 
-        item {
-            Text(
-                modifier = Modifier.padding(
-                    start = 32.dp
-                ),
-                text = stringResource(R.string.reports),
-                style = UI.typo.h2.style(
-                    fontWeight = FontWeight.ExtraBold
+        if (state.filter == null) {
+            item { NoFilter(onSetFilter = showFilter) }
+        } else {
+            item {
+                ReportSummary(
+                    net = AmountFormat.format(state.balance, state.baseCurrency, signed = true),
+                    netColor = when {
+                        state.balance > 0 -> colors.income
+                        state.balance < 0 -> colors.expense
+                        else -> colors.ink
+                    },
+                    income = AmountFormat.format(state.income, state.baseCurrency),
+                    expenses = AmountFormat.format(state.expenses, state.baseCurrency),
+                    onIncomeClick = { openPieChart(TransactionType.INCOME) },
+                    onExpensesClick = { openPieChart(TransactionType.EXPENSE) },
+                    transfersAsIncomeExpense = state.treatTransfersAsIncExp
+                        .takeIf { state.showTransfersAsIncExpCheckbox },
+                    onTransfersAsIncomeExpense = {
+                        onEventHandler(ReportScreenEvent.OnTreatTransfersAsIncomeExpense(transfersAsIncomeExpense = it))
+                    },
                 )
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            BalanceRow(
-                modifier = Modifier
-                    .padding(start = 32.dp),
-                textColor = UI.colors.pureInverse,
-                currency = state.baseCurrency,
-                balance = state.balance,
-                balanceAmountPrefix = when {
-                    state.balance > 0 -> "+"
-                    else -> null
-                }
-            )
-
-            Spacer(Modifier.height(20.dp))
-
-            IncomeExpensesCards(
-                history = state.history,
-                currency = state.baseCurrency,
-                income = state.income,
-                expenses = state.expenses,
-                hasAddButtons = false,
-                itemColor = UI.colors.pure,
-                incomeHeaderCardClicked = {
-                    if (state.transactions.isNotEmpty()) {
-                        nav.navigateTo(
-                            PieChartStatisticScreen(
-                                type = TransactionType.INCOME,
-                                transactions = legacyTransactions.toImmutableList(),
-                                accountList = state.accountIdFilters,
-                                treatTransfersAsIncomeExpense = state.treatTransfersAsIncExp
-                            )
-                        )
-                    }
-                },
-                expenseHeaderCardClicked = {
-                    if (state.transactions.isNotEmpty()) {
-                        nav.navigateTo(
-                            PieChartStatisticScreen(
-                                type = TransactionType.EXPENSE,
-                                transactions = legacyTransactions.toImmutableList(),
-                                accountList = state.accountIdFilters,
-                                treatTransfersAsIncomeExpense = state.treatTransfersAsIncExp
-                            )
-                        )
-                    }
-                }
-            )
-
-            if (state.showTransfersAsIncExpCheckbox) {
-                IvyCheckboxWithText(
-                    modifier = Modifier
-                        .padding(16.dp),
-                    text = stringResource(R.string.transfers_as_income_expense),
-                    checked = state.treatTransfersAsIncExp
-                ) {
-                    onEventHandler.invoke(
-                        ReportScreenEvent.OnTreatTransfersAsIncomeExpense(
-                            transfersAsIncomeExpense = it
-                        )
-                    )
-                }
-            } else {
-                Spacer(Modifier.height(32.dp))
             }
 
-            TransactionsDividerLine(
-                paddingHorizontal = 0.dp
-            )
-
-            Spacer(Modifier.height(4.dp))
-        }
-
-        if (state.filter != null) {
-            transactions(
+            dueSections(
                 baseData = AppBaseData(
                     baseCurrency = state.baseCurrency,
                     categories = state.categories,
                     accounts = state.accounts,
                 ),
-
                 upcoming = LegacyDueSection(
                     trns = state.upcomingTransactions,
                     stats = IncomeExpensePair(
@@ -240,11 +190,6 @@ private fun BoxWithConstraintsScope.UI(
                     ),
                     expanded = state.upcomingExpanded
                 ),
-
-                setUpcomingExpanded = {
-                    onEventHandler.invoke(ReportScreenEvent.OnUpcomingExpanded(upcomingExpanded = it))
-                },
-
                 overdue = LegacyDueSection(
                     trns = state.overdueTransactions,
                     stats = IncomeExpensePair(
@@ -253,36 +198,34 @@ private fun BoxWithConstraintsScope.UI(
                     ),
                     expanded = state.overdueExpanded
                 ),
-                setOverdueExpanded = {
-                    onEventHandler.invoke(ReportScreenEvent.OnOverdueExpanded(overdueExpanded = it))
-                },
-
-                history = state.history,
-                lastItemSpacer = 48.dp,
-
-                onPayOrGet = {
-                    onEventHandler.invoke(ReportScreenEvent.OnPayOrGetLegacy(transaction = it))
-                },
-                emptyStateTitle = stringRes(R.string.no_transactions),
-                emptyStateText = stringRes(R.string.no_transactions_for_your_filter),
                 shouldShowAccountSpecificColorInTransactions = state.showAccountColorsInTransactions,
-                onSkipTransaction = {
-                    onEventHandler.invoke(ReportScreenEvent.SkipTransactionLegacy(transaction = it))
-                },
-                onSkipAllTransactions = {
-                    onEventHandler.invoke(ReportScreenEvent.SkipTransactionsLegacy(transactions = it))
-                }
+                onPayOrGet = { onEventHandler(ReportScreenEvent.OnPayOrGetLegacy(transaction = it)) },
+                setUpcomingExpanded = { onEventHandler(ReportScreenEvent.OnUpcomingExpanded(upcomingExpanded = it)) },
+                setOverdueExpanded = { onEventHandler(ReportScreenEvent.OnOverdueExpanded(overdueExpanded = it)) },
+                onSkipTransaction = { onEventHandler(ReportScreenEvent.SkipTransactionLegacy(transaction = it)) },
+                onSkipAllTransactions = { onEventHandler(ReportScreenEvent.SkipTransactionsLegacy(transactions = it)) },
             )
-        } else {
-            item {
-                NoFilterEmptyState(
-                    setFilterOverlayVisible = {
-                        onEventHandler.invoke(
-                            ReportScreenEvent.OnFilterOverlayVisible(
-                                filterOverlayVisible = it
-                            )
-                        )
-                    }
+
+            if (state.historyGroups.isEmpty()) {
+                item {
+                    Text(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = ScreenPadding, vertical = 32.dp),
+                        text = stringResource(R.string.no_transactions_for_your_filter),
+                        style = RevampType.body,
+                        color = colors.inkMuted,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+            items(state.historyGroups, key = { "day-${it.label}" }) { group ->
+                TransactionDayGroup(
+                    modifier = Modifier.padding(horizontal = ScreenPadding),
+                    group = group,
+                    onTransactionClick = { row ->
+                        nav.navigateTo(EditTransactionScreen(initialTransactionId = row.id, type = row.type))
+                    },
                 )
             }
         }
@@ -312,95 +255,147 @@ private fun BoxWithConstraintsScope.UI(
 }
 
 @Composable
-private fun NoFilterEmptyState(
-    setFilterOverlayVisible: (Boolean) -> Unit
-) {
+private fun NoFilter(onSetFilter: () -> Unit) {
+    val colors = revampColors()
     Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        modifier = Modifier
+            .padding(horizontal = ScreenPadding)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(colors.surface)
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Spacer(Modifier.height(16.dp))
-
-        IvyIcon(
-            icon = R.drawable.ic_filter_l,
-            tint = Gray
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            text = stringResource(R.string.no_filter),
-            style = UI.typo.b1.style(
-                color = Gray,
-                fontWeight = FontWeight.ExtraBold
-            )
-        )
-
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            modifier = Modifier.padding(horizontal = 32.dp),
-            text = stringResource(R.string.invalid_filter_warning),
-            style = UI.typo.b2.style(
-                color = Gray,
-                fontWeight = FontWeight.Medium,
-                textAlign = TextAlign.Center
-            )
-        )
-
-        Spacer(Modifier.height(32.dp))
-
-        IvyButton(
-            iconStart = R.drawable.ic_filter_xs,
-            text = stringResource(R.string.set_filter)
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(CircleShape)
+                .background(colors.primaryTint),
+            contentAlignment = Alignment.Center,
         ) {
-            setFilterOverlayVisible(true)
+            Icon(Icons.Filled.FilterAlt, contentDescription = null, tint = colors.onPrimaryTint)
         }
-
-        Spacer(Modifier.height(96.dp))
+        Text(text = "Choose what to include", style = RevampType.title, color = colors.ink)
+        Text(
+            text = "Pick accounts, categories, tags, dates or amounts. You can export the result to CSV.",
+            style = RevampType.label,
+            color = colors.inkMuted,
+            textAlign = TextAlign.Center,
+        )
+        Box(
+            modifier = Modifier
+                .padding(top = 8.dp)
+                .heightIn(min = 48.dp)
+                .clip(CircleShape)
+                .background(colors.primary)
+                .clickable(role = Role.Button, onClick = onSetFilter)
+                .padding(horizontal = 24.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(text = stringResource(R.string.set_filter), style = RevampType.bodyStrong, color = colors.onPrimary)
+        }
     }
 }
 
+@Suppress("LongParameterList")
 @Composable
-private fun Toolbar(
-    onExport: () -> Unit,
-    onFilter: () -> Unit
+private fun ReportSummary(
+    net: String,
+    netColor: Color,
+    income: String,
+    expenses: String,
+    onIncomeClick: () -> Unit,
+    onExpensesClick: () -> Unit,
+    /** null hides the switch */
+    transfersAsIncomeExpense: Boolean?,
+    onTransfersAsIncomeExpense: (Boolean) -> Unit,
 ) {
-    val nav = navigation()
-    IvyToolbar(
-        backButtonType = BackButtonType.CLOSE,
-        onBack = {
-            nav.back()
-        }
+    val colors = revampColors()
+    Column(
+        modifier = Modifier
+            .padding(horizontal = ScreenPadding)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(colors.surface)
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Spacer(Modifier.weight(1f))
-
-        // Export CSV
-        IvyOutlinedButton(
-            text = stringResource(R.string.export),
-            iconTint = Green,
-            textColor = Green,
-            solidBackground = true,
-            padding = 8.dp,
-            iconStart = R.drawable.ic_export_csv
-        ) {
-            onExport()
+        Column {
+            Text(text = "Net", style = RevampType.label, color = colors.inkMuted)
+            Text(text = net, style = RevampType.display, color = netColor)
         }
-
-        Spacer(Modifier.width(16.dp))
-
-        // Filter
-        CircleButtonFilled(
-            icon = R.drawable.ic_filter_xs
-        ) {
-            onFilter()
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            FlowTile(
+                modifier = Modifier.weight(1f),
+                label = "Income",
+                amount = income,
+                amountColor = colors.income,
+                tint = colors.incomeTint,
+                onClick = onIncomeClick,
+            )
+            FlowTile(
+                modifier = Modifier.weight(1f),
+                label = "Expenses",
+                amount = expenses,
+                amountColor = colors.expense,
+                tint = colors.expenseTint,
+                onClick = onExpensesClick,
+            )
         }
-
-        Spacer(Modifier.width(24.dp))
+        if (transfersAsIncomeExpense != null) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(role = Role.Switch) { onTransfersAsIncomeExpense(!transfersAsIncomeExpense) },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    modifier = Modifier.weight(1f),
+                    text = stringResource(R.string.transfers_as_income_expense),
+                    style = RevampType.body,
+                    color = colors.ink,
+                )
+                Switch(
+                    checked = transfersAsIncomeExpense,
+                    onCheckedChange = onTransfersAsIncomeExpense,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = colors.onPrimary,
+                        checkedTrackColor = colors.primary,
+                        uncheckedThumbColor = colors.inkMuted,
+                        uncheckedTrackColor = colors.ground,
+                        uncheckedBorderColor = colors.border,
+                    ),
+                )
+            }
+        }
     }
 }
 
-@ExperimentalFoundationApi
+@Suppress("LongParameterList")
+@Composable
+private fun FlowTile(
+    label: String,
+    amount: String,
+    amountColor: Color,
+    tint: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = revampColors()
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(tint)
+            .clickable(role = Role.Button, onClickLabel = "By category", onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(text = label, style = RevampType.label, color = colors.inkMuted)
+        Text(text = amount, style = RevampType.amount, color = amountColor, maxLines = 1)
+    }
+}
+
 @Preview
 @Composable
 private fun Preview(theme: Theme = Theme.LIGHT) {
@@ -415,7 +410,7 @@ private fun Preview(theme: Theme = Theme.LIGHT) {
             orderNum = 0.0,
         )
         val state = ReportScreenState(
-            baseCurrency = "BGN",
+            baseCurrency = "INR",
             balance = -6405.66,
             income = 2000.0,
             expenses = 8405.66,
@@ -461,7 +456,6 @@ private fun Preview(theme: Theme = Theme.LIGHT) {
     }
 }
 
-@ExperimentalFoundationApi
 @Preview
 @Composable
 private fun Preview_NO_FILTER(theme: Theme = Theme.LIGHT) {
@@ -476,7 +470,7 @@ private fun Preview_NO_FILTER(theme: Theme = Theme.LIGHT) {
             orderNum = 0.0,
         )
         val state = ReportScreenState(
-            baseCurrency = "BGN",
+            baseCurrency = "INR",
             balance = 0.0,
             income = 0.0,
             expenses = 0.0,
@@ -525,7 +519,6 @@ private fun Preview_NO_FILTER(theme: Theme = Theme.LIGHT) {
 }
 
 /** For screenshot testing */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ReportUiTest(isDark: Boolean) {
     val theme = if (isDark) Theme.DARK else Theme.LIGHT
@@ -533,7 +526,6 @@ fun ReportUiTest(isDark: Boolean) {
 }
 
 /** For screenshot testing */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ReportNoFilterUiTest(isDark: Boolean) {
     val theme = if (isDark) Theme.DARK else Theme.LIGHT

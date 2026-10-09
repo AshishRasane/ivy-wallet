@@ -20,5 +20,12 @@ data class PieChartStatisticState(
     val showCloseButtonOnly: Boolean,
     val filterExcluded: Boolean,
     val transactions: ImmutableList<Transaction>,
-    val choosePeriodModal: ChoosePeriodModalData?
+    val choosePeriodModal: ChoosePeriodModalData?,
+    /** Monthly totals up to the selected month; empty when the period isn't a month. */
+    val trend: ImmutableList<TrendBar>,
+    /** "5-month avg ₹31.2k" */
+    val trendAverage: String?,
+    /** "12% less than September" */
+    val comparison: String?,
+    val transactionCount: Int,
 )

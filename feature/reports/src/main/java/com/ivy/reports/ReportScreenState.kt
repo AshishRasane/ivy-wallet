@@ -4,6 +4,7 @@ import com.ivy.base.legacy.TransactionHistoryItem
 import com.ivy.data.model.Category
 import com.ivy.data.model.Tag
 import com.ivy.legacy.datamodel.Account
+import com.ivy.transactions.revamp.TransactionDayGroupUi
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import java.util.*
@@ -19,6 +20,8 @@ data class ReportScreenState(
     val overdueIncome: Double = 0.0,
     val overdueExpenses: Double = 0.0,
     val history: ImmutableList<TransactionHistoryItem> = persistentListOf(),
+    /** [history] as day groups for the revamped list. */
+    val historyGroups: ImmutableList<TransactionDayGroupUi> = persistentListOf(),
     val upcomingTransactions: ImmutableList<com.ivy.base.legacy.Transaction> = persistentListOf(),
     val overdueTransactions: ImmutableList<com.ivy.base.legacy.Transaction> = persistentListOf(),
     val categories: ImmutableList<Category> = persistentListOf(),
