@@ -18,6 +18,7 @@ import com.ivy.data.model.PositiveValue
 import com.ivy.data.model.Transaction
 import com.ivy.data.model.TransactionId
 import com.ivy.data.model.TransactionMetadata
+import com.ivy.data.model.Transfer
 import com.ivy.data.model.primitive.AssetCode
 import com.ivy.data.model.primitive.NotBlankTrimmedString
 import com.ivy.data.model.primitive.PositiveDouble
@@ -47,22 +48,61 @@ class SmsQuickAdd @Inject constructor(
         val sms = ensureNotNull(store.findById(smsTransactionId)) { "SMS transaction not found" }
         ensure(sms.status == SmsTransactionStatus.PENDING) { "Already ${sms.status.lowercase()}" }
         val suggestion = store.suggestion(sms)
+        ensure(suggestion.isComplete) { "Account or category not learned yet" }
         val accountId = ensureNotNull(suggestion.accountId) { "Account not learned yet" }
-        val categoryId = ensureNotNull(suggestion.categoryId) { "Category not learned yet" }
         val account = ensureNotNull(accountDao.findById(accountId)) { "Account no longer exists" }
+        val baseCurrency = settingsDao.findFirst().currency
+        val value = positiveValue(sms.amount, account.currency ?: baseCurrency).bind()
 
-        val currency = account.currency ?: settingsDao.findFirst().currency
-        val value = PositiveValue(
-            amount = PositiveDouble.from(sms.amount).bind(),
-            asset = AssetCode.from(currency).bind(),
-        )
-        val transaction = sms.toTransaction(value, AccountId(accountId), CategoryId(categoryId))
+        val toAccountId = suggestion.toAccountId
+        val transaction = if (suggestion.type == TransactionType.TRANSFER && toAccountId != null) {
+            val toAccount = ensureNotNull(accountDao.findById(toAccountId)) { "Account no longer exists" }
+            // a transfer between currencies needs an exchange rate: the user enters it in the app
+            ensure((toAccount.currency ?: baseCurrency) == (account.currency ?: baseCurrency)) {
+                "Different currencies"
+            }
+            sms.toTransfer(value, AccountId(accountId), AccountId(toAccountId))
+        } else {
+            val categoryId = ensureNotNull(suggestion.categoryId) { "Category not learned yet" }
+            sms.toTransaction(value, AccountId(accountId), CategoryId(categoryId))
+        }
 
         transactionRepository.save(transaction)
-        store.markAdded(sms.id, accountId, categoryId)
+        store.markAdded(sms.id, accountId, suggestion.categoryId, toAccountId.takeIf { transaction is Transfer })
         refreshWidget(WalletBalanceWidgetReceiver::class.java)
         QuickAdded(sms = sms, transaction = transaction, suggestion = suggestion)
     }
+
+    private fun positiveValue(amount: Double, currency: String): Either<String, PositiveValue> = either {
+        PositiveValue(
+            amount = PositiveDouble.from(amount).bind(),
+            asset = AssetCode.from(currency).bind(),
+        )
+    }
+
+    private fun SmsTransactionEntity.toTransfer(
+        value: PositiveValue,
+        from: AccountId,
+        to: AccountId,
+    ): Transfer = Transfer(
+        id = TransactionId(UUID.randomUUID()),
+        title = counterparty?.let { NotBlankTrimmedString.from(it).getOrNull() },
+        description = NotBlankTrimmedString.from(prefillDescription()).getOrNull(),
+        category = null,
+        time = dateTime,
+        settled = true,
+        metadata = TransactionMetadata(
+            recurringRuleId = null,
+            paidForDateTime = null,
+            loanId = null,
+            loanRecordId = null,
+        ),
+        tags = emptyList(),
+        fromAccount = from,
+        fromValue = value,
+        toAccount = to,
+        toValue = value,
+    )
 
     private fun SmsTransactionEntity.toTransaction(
         value: PositiveValue,

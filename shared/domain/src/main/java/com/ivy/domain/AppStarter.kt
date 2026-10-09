@@ -37,6 +37,8 @@ data class TransactionPrefill(
     val dateTime: Instant?,
     val accountId: UUID? = null,
     val categoryId: UUID? = null,
+    /** For a transfer: the account the money goes to. */
+    val toAccountId: UUID? = null,
     /** Set when the transaction comes from a bank SMS (see [SmsTransactionCallbacks]). */
     val smsTransactionId: UUID? = null,
 )

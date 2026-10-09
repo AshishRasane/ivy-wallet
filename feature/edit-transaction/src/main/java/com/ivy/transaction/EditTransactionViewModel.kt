@@ -177,6 +177,7 @@ class EditTransactionViewModel @Inject constructor(
                     accounts = getAccounts
                 ),
                 categoryId = screen.categoryId,
+                toAccountId = screen.toAccountId,
                 type = screen.type,
                 amount = screen.amount?.toBigDecimal() ?: BigDecimal.ZERO,
                 toAmount = BigDecimal.ZERO,
@@ -763,6 +764,8 @@ class EditTransactionViewModel @Inject constructor(
                             smsTransactionId = smsId,
                             accountId = loadedTransaction().accountId,
                             categoryId = loadedTransaction().categoryId,
+                            toAccountId = loadedTransaction().toAccountId
+                                .takeIf { loadedTransaction().type == TransactionType.TRANSFER },
                         )
                         smsTransactionId = null
                     }

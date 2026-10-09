@@ -35,6 +35,12 @@ object SmsKeys {
         return name.replace(nonAlphanumeric, " ").replace(whitespace, " ").trim().ifBlank { null }
     }
 
+    /**
+     * Where money sent to this merchant goes when it's a transfer (e.g. "CRED CCBP" -> the
+     * credit card account), stored with the account links: "payee|cred ccbp".
+     */
+    fun payeeKey(counterparty: String?): String? = merchantKey(counterparty)?.let { "payee|$it" }
+
     private fun sha256(text: String): String =
         MessageDigest.getInstance("SHA-256")
             .digest(text.toByteArray(Charsets.UTF_8))

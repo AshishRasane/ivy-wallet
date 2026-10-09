@@ -18,5 +18,6 @@ fun SmsTransactionEntity.toPrefill(suggestion: SmsSuggestion): TransactionPrefil
     dateTime = dateTime,
     accountId = suggestion.accountId,
     categoryId = suggestion.categoryId,
+    toAccountId = suggestion.toAccountId,
     smsTransactionId = id,
 )

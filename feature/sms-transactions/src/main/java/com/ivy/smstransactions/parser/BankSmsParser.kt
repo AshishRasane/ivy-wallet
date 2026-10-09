@@ -12,7 +12,8 @@ import javax.inject.Inject
 
 /**
  * Detects completed income/expense transactions in Indian bank SMS
- * (bank accounts, debit/credit cards, UPI and wallets).
+ * (bank accounts, debit/credit cards, UPI and wallets). Money sent to the user's own
+ * accounts elsewhere (credit card bills) is a transfer.
  *
  * Pure and stateless: it doesn't touch Android APIs, so it's fully unit-testable.
  */
@@ -29,13 +30,17 @@ class BankSmsParser @Inject constructor() {
         ensure(!isCreditCardBillPayment(text)) { SmsSkipReason.CreditCardBillPayment }
         ensure(BANKING_CONTEXT.containsMatchIn(text)) { SmsSkipReason.NotATransaction }
 
-        val type = ensureNotNull(detectType(text)) { SmsSkipReason.NotATransaction }
+        val direction = ensureNotNull(detectType(text)) { SmsSkipReason.NotATransaction }
         val amount = ensureNotNull(detectAmount(text)) { SmsSkipReason.NotATransaction }
 
         SmsTransaction(
-            type = type,
+            type = if (direction == TransactionType.EXPENSE && isCardBillPayment(text)) {
+                TransactionType.TRANSFER
+            } else {
+                direction
+            },
             amount = amount,
-            counterparty = detectCounterparty(text, type),
+            counterparty = detectCounterparty(text, direction),
             accountEnding = ACCOUNT_ENDING.find(text)?.groupValues?.get(1)?.takeLast(ACCOUNT_ENDING_DIGITS),
             bank = detectBank(sender, text),
             reference = detectReference(text),
@@ -55,6 +60,10 @@ class BankSmsParser @Inject constructor() {
 
     private fun isCreditCardBillPayment(text: String): Boolean =
         text.contains("credit card", ignoreCase = true) && CARD_PAYMENT_RECEIVED.containsMatchIn(text)
+
+    /** Paying a credit card bill (e.g. via CRED) moves money to the card account; it isn't spending. */
+    private fun isCardBillPayment(text: String): Boolean =
+        CARD_BILL_PAYMENT.containsMatchIn(text) && !CARD_SPEND.containsMatchIn(text)
 
     private fun detectType(text: String): TransactionType? {
         // The first keyword wins: "A/c X debited ... & A/c Y credited" is a debit for the user.
@@ -179,6 +188,15 @@ class BankSmsParser @Inject constructor() {
         private val CARD_PAYMENT_RECEIVED = regex(
             "\\bpayment\\b.*\\breceived\\b|\\breceived\\b.*\\bpayment\\b"
         )
+
+        // "to CRED CCBP" (CRED's bill payments), "cred.club@axisb", "towards your credit card"
+        private val CARD_BILL_PAYMENT = regex(
+            "\\bccbp\\b|\\bcred\\.club\\b|credit ?card bill|towards (?:your )?(?:[a-z]+ )?credit ?card|" +
+                "\\bcc (?:bill )?payment\\b"
+        )
+
+        // a purchase made *with* a card (e.g. rent paid on CRED with a credit card) is spending
+        private val CARD_SPEND = regex("\\bspent\\b|\\bcard (?:no\\.? )?x*\\d+ (?:has been )?used\\b")
         private val BANKING_CONTEXT = regex(
             "(\\ba/c|\\bac\\b|\\bacct\\b|\\baccount\\b|\\bcard\\b|\\bupi\\b|\\bvpa\\b|\\bbank\\b|" +
                 "\\bwallet\\b|\\bimps\\b|\\bneft\\b|\\brtgs\\b|\\batm\\b)"
@@ -267,6 +285,7 @@ class BankSmsParser @Inject constructor() {
             Bank("Indian Bank", listOf("INDBNK"), regex("\\bindian bank\\b")),
             Bank("Bank of India", listOf("BOIIND"), regex("bank of india")),
             Bank("Paytm Payments Bank", listOf("PAYTM"), regex("\\bpaytm\\b")),
+            Bank("slice", listOf("SLICE", "SLCEIT"), regex("\\bslice\\b")),
         )
     }
 }

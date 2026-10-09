@@ -3,6 +3,7 @@ package com.ivy.transactions
 import androidx.compose.runtime.Immutable
 import com.ivy.base.legacy.Transaction
 import com.ivy.base.legacy.TransactionHistoryItem
+import com.ivy.data.model.AccountId
 import com.ivy.data.model.Category
 import com.ivy.legacy.data.model.TimePeriod
 import com.ivy.legacy.datamodel.Account
@@ -10,6 +11,8 @@ import com.ivy.transactions.revamp.TransactionDayGroupUi
 import com.ivy.wallet.ui.theme.modal.ChoosePeriodModalData
 import kotlinx.collections.immutable.ImmutableList
 
+// AccountId is a typed value-class id; the detekt rule doesn't recognize it.
+@Suppress("DataClassTypedIDs")
 @Immutable
 data class TransactionsState(
     val period: TimePeriod,
@@ -40,5 +43,7 @@ data class TransactionsState(
     val skipAllModalVisible: Boolean,
     val deleteModal1Visible: Boolean,
     val choosePeriodModal: ChoosePeriodModalData?,
-    val showAccountColorsInTransactions: Boolean
+    val showAccountColorsInTransactions: Boolean,
+    /** The account this one's bill was last paid from (for "Pay bill"). */
+    val lastBillPaymentAccountId: AccountId?,
 )

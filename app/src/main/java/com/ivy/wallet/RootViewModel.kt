@@ -55,6 +55,7 @@ class RootViewModel @Inject constructor(
         const val EXTRA_ADD_TRANSACTION_DATE_TIME = "add_transaction_date_time_extra"
         const val EXTRA_ADD_TRANSACTION_ACCOUNT_ID = "add_transaction_account_id_extra"
         const val EXTRA_ADD_TRANSACTION_CATEGORY_ID = "add_transaction_category_id_extra"
+        const val EXTRA_ADD_TRANSACTION_TO_ACCOUNT_ID = "add_transaction_to_account_id_extra"
         const val EXTRA_ADD_TRANSACTION_SMS_ID = "add_transaction_sms_id_extra"
         const val EXTRA_EDIT_TRANSACTION_ID = "edit_transaction_id_extra"
 
@@ -137,6 +138,7 @@ class RootViewModel @Inject constructor(
                         ?.let(Instant::ofEpochMilli),
                     accountId = intent.uuidExtra(EXTRA_ADD_TRANSACTION_ACCOUNT_ID),
                     categoryId = intent.uuidExtra(EXTRA_ADD_TRANSACTION_CATEGORY_ID),
+                    toAccountId = intent.uuidExtra(EXTRA_ADD_TRANSACTION_TO_ACCOUNT_ID),
                     smsTransactionId = intent.uuidExtra(EXTRA_ADD_TRANSACTION_SMS_ID),
                 )
             )

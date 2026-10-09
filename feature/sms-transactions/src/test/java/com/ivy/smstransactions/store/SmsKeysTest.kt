@@ -41,4 +41,11 @@ class SmsKeysTest {
         SmsKeys.merchantKey("@@@") shouldBe null
         SmsKeys.merchantKey(null) shouldBe null
     }
+
+    @Test
+    fun `payee key is stored next to the account links`() {
+        SmsKeys.payeeKey("CRED CCBP") shouldBe "payee|cred ccbp"
+        SmsKeys.payeeKey("cred.club@axisb") shouldBe "payee|cred club"
+        SmsKeys.payeeKey(null) shouldBe null
+    }
 }

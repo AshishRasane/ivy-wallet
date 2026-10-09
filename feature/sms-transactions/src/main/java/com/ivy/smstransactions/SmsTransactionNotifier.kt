@@ -37,7 +37,7 @@ class SmsTransactionNotifier @Inject constructor(
                 priority = NotificationCompat.PRIORITY_HIGH
             )
             .setContentTitle(
-                listOfNotNull("${trn.typeLabel()} ${formatInr(trn.amount)}", trn.counterparty)
+                listOfNotNull("${typeLabel(suggestion.type)} ${formatInr(trn.amount)}", trn.counterparty)
                     .joinToString(" · ")
             )
             .setContentText(contentText(trn, suggestion))
@@ -88,15 +88,12 @@ class SmsTransactionNotifier @Inject constructor(
                 priority = NotificationCompat.PRIORITY_LOW
             )
             .setContentTitle(listOfNotNull("Saved ${formatInr(trn.amount)}", trn.counterparty).joinToString(" · "))
-            .setContentText(
-                (listOfNotNull(added.suggestion.accountName, added.suggestion.categoryName) + "Tap to edit")
-                    .joinToString(" · ")
-            )
+            .setContentText((learned(added.suggestion) + "Tap to edit").joinToString(" · "))
             .setContentIntent(
                 PendingIntent.getActivity(
                     context,
                     notificationId,
-                    appStarter.getEditTransactionIntent(added.transaction.id.value, trn.type),
+                    appStarter.getEditTransactionIntent(added.transaction.id.value, added.suggestion.type),
                     PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
                 )
             )
@@ -109,16 +106,30 @@ class SmsTransactionNotifier @Inject constructor(
 
     /** Opens "add transaction" pre-filled with the SMS details and the learned account/category. */
     fun addTransactionIntent(trn: SmsTransactionEntity, suggestion: SmsSuggestion): Intent =
-        appStarter.getAddTransactionIntent(type = trn.type, prefill = trn.toPrefill(suggestion))
+        appStarter.getAddTransactionIntent(type = suggestion.type, prefill = trn.toPrefill(suggestion))
 
     private fun contentText(trn: SmsTransactionEntity, suggestion: SmsSuggestion): String {
-        val learned = listOfNotNull(suggestion.accountName, suggestion.categoryName)
         val source = listOfNotNull(trn.bank, trn.accountEnding?.let { "A/c XX$it" })
-        return (learned.ifEmpty { source } + "Tap to add").joinToString(" · ")
+        return (learned(suggestion).ifEmpty { source } + "Tap to add").joinToString(" · ")
     }
 
-    private fun SmsTransactionEntity.typeLabel(): String =
-        if (type == TransactionType.INCOME) "Income" else "Expense"
+    /** "HDFC Savings · Food & Drinks", or "HDFC Savings → ICICI Card" for a transfer. */
+    private fun learned(suggestion: SmsSuggestion): List<String> =
+        if (suggestion.type == TransactionType.TRANSFER) {
+            listOfNotNull(
+                listOfNotNull(suggestion.accountName, suggestion.toAccountName)
+                    .joinToString(" → ")
+                    .ifBlank { null }
+            )
+        } else {
+            listOfNotNull(suggestion.accountName, suggestion.categoryName)
+        }
+
+    private fun typeLabel(type: TransactionType): String = when (type) {
+        TransactionType.INCOME -> "Income"
+        TransactionType.TRANSFER -> "Transfer"
+        TransactionType.EXPENSE -> "Expense"
+    }
 
     companion object {
         private val INR_FORMAT: NumberFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))

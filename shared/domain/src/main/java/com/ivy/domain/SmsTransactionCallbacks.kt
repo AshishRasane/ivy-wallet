@@ -7,6 +7,9 @@ import java.util.UUID
  * without depending on the SMS feature module.
  */
 interface SmsTransactionCallbacks {
-    /** The user saved the SMS transaction [smsTransactionId] with this account and category. */
-    suspend fun onSaved(smsTransactionId: UUID, accountId: UUID, categoryId: UUID?)
+    /**
+     * The user saved the SMS transaction [smsTransactionId] with this account and category,
+     * or as a transfer to [toAccountId].
+     */
+    suspend fun onSaved(smsTransactionId: UUID, accountId: UUID, categoryId: UUID?, toAccountId: UUID?)
 }

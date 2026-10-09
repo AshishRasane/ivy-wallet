@@ -88,13 +88,15 @@ class SmsReviewViewModel @Inject constructor(
     private fun add(id: UUID) {
         viewModelScope.launch {
             val trn = store.findById(id) ?: return@launch
-            val prefill = trn.toPrefill(store.suggestion(trn))
+            val suggestion = store.suggestion(trn)
+            val prefill = trn.toPrefill(suggestion)
             nav.navigateTo(
                 EditTransactionScreen(
                     initialTransactionId = null,
-                    type = trn.type,
+                    type = suggestion.type,
                     accountId = prefill.accountId,
                     categoryId = prefill.categoryId,
+                    toAccountId = prefill.toAccountId,
                     amount = prefill.amount,
                     title = prefill.title,
                     description = prefill.description,
@@ -114,17 +116,27 @@ class SmsReviewViewModel @Inject constructor(
 
     private fun SmsTransactionEntity.toItem(suggestion: SmsSuggestion): SmsReviewItem {
         val isIncome = type == TransactionType.INCOME
+        val isTransfer = suggestion.type == TransactionType.TRANSFER
         val sign = if (isIncome) "+" else "−"
         return SmsReviewItem(
             id = SmsItemId(id),
-            title = counterparty ?: if (isIncome) "Income" else "Expense",
+            title = counterparty ?: when {
+                isIncome -> "Income"
+                isTransfer -> "Transfer"
+                else -> "Expense"
+            },
             amount = sign + SmsTransactionNotifier.formatInr(amount),
             isIncome = isIncome,
             details = listOfNotNull(formatTime(dateTime), bank, accountEnding?.let { "A/c XX$it" })
                 .joinToString(" · "),
-            suggestion = listOfNotNull(suggestion.accountName, suggestion.categoryName)
-                .joinToString(" · ")
-                .ifBlank { null },
+            suggestion = if (isTransfer) {
+                "Transfer · " + listOfNotNull(suggestion.accountName, suggestion.toAccountName ?: "choose account")
+                    .joinToString(" → ")
+            } else {
+                listOfNotNull(suggestion.accountName, suggestion.categoryName)
+                    .joinToString(" · ")
+                    .ifBlank { null }
+            },
         )
     }
 

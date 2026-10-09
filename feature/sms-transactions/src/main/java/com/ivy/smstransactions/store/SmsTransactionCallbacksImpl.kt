@@ -13,8 +13,8 @@ class SmsTransactionCallbacksImpl @Inject constructor(
     private val store: SmsTransactionStore,
     private val notifier: SmsTransactionNotifier,
 ) : SmsTransactionCallbacks {
-    override suspend fun onSaved(smsTransactionId: UUID, accountId: UUID, categoryId: UUID?) {
-        store.markAdded(smsTransactionId, accountId, categoryId)
+    override suspend fun onSaved(smsTransactionId: UUID, accountId: UUID, categoryId: UUID?, toAccountId: UUID?) {
+        store.markAdded(smsTransactionId, accountId, categoryId, toAccountId)
         notifier.dismiss(smsTransactionId)
     }
 }

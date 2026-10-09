@@ -129,6 +129,7 @@ class TransactionsViewModel @Inject constructor(
         mutableStateOf<ImmutableList<TransactionHistoryItem>>(persistentListOf())
 
     private val account = mutableStateOf<LegacyAccount?>(null)
+    private val lastBillPaymentAccountId = mutableStateOf<AccountId?>(null)
     private val category = mutableStateOf<Category?>(null)
     private val initWithTransactions = mutableStateOf(false)
     private val treatTransfersAsIncomeExpense = mutableStateOf(false)
@@ -168,7 +169,8 @@ class TransactionsViewModel @Inject constructor(
             skipAllModalVisible = getSkipAllModalVisible(),
             deleteModal1Visible = getDeleteModal1Visible(),
             choosePeriodModal = getChoosePeriodModal(),
-            showAccountColorsInTransactions = getShouldShowAccountSpecificColorInTransactions()
+            showAccountColorsInTransactions = getShouldShowAccountSpecificColorInTransactions(),
+            lastBillPaymentAccountId = lastBillPaymentAccountId.value,
         )
     }
 
@@ -363,6 +365,9 @@ class TransactionsViewModel @Inject constructor(
             accountDao.findById(accountId)?.toLegacyDomain() ?: error("account not found")
         }
         account.value = initialAccount
+        lastBillPaymentAccountId.value = transactionRepository.findAllTransfersToAccount(AccountId(accountId))
+            .maxByOrNull { it.time }
+            ?.fromAccount
         val range = period.value.toRange(ivyContext.startDayOfMonth, timeConverter, timeProvider)
 
         if (initialAccount.currency.isNotNullOrBlank()) {

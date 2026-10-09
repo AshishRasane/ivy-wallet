@@ -31,6 +31,8 @@ data class EditTransactionScreen(
     // extras
     val accountId: UUID? = null,
     val categoryId: UUID? = null,
+    /** For a new transfer: the account the money goes to. */
+    val toAccountId: UUID? = null,
     // prefill for new transactions (e.g. detected from a bank SMS)
     val amount: Double? = null,
     val title: String? = null,

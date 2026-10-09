@@ -5,6 +5,7 @@ import com.google.testing.junit.testparameterinjector.TestParameter
 import com.google.testing.junit.testparameterinjector.TestParameterInjector
 import com.ivy.base.model.TransactionType.EXPENSE
 import com.ivy.base.model.TransactionType.INCOME
+import com.ivy.base.model.TransactionType.TRANSFER
 import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.matchers.shouldBe
@@ -42,6 +43,52 @@ class BankSmsParserTest {
                 bank = "HDFC Bank",
                 ref = "620345230917",
                 date = LocalDate.of(2026, 7, 22),
+            )
+        ),
+
+        // card bill paid via CRED (from a slice account): a transfer to the card, not spending
+        CredCardBillPayment(
+            sender = "AX-SLCEIT-S",
+            body = "Rs. 6,046 sent from a/c xx4321 on 05-Oct-26 to CRED CCBP (UPI Ref: 627800000001). " +
+                "Not you? Call 08048320000 - slice",
+            expected = trn(
+                type = TRANSFER,
+                amount = 6046.0,
+                counterparty = "CRED CCBP",
+                account = "4321",
+                bank = "slice",
+                ref = "627800000001",
+                date = LocalDate.of(2026, 10, 5),
+            )
+        ),
+        CredVpaBillPayment(
+            sender = "VM-HDFCBK-S",
+            body = "Rs.12,000.00 debited from a/c XX1234 on 06-10-26 to VPA cred.club@axisb " +
+                "UPI Ref No 627800000002",
+            expected = trn(
+                type = TRANSFER,
+                amount = 12000.0,
+                counterparty = "cred.club@axisb",
+                account = "1234",
+                bank = "HDFC Bank",
+                ref = "627800000002",
+                date = LocalDate.of(2026, 10, 6),
+            )
+        ),
+
+        // paying rent on CRED *with* the credit card is spending
+        CredPurchaseWithCard(
+            sender = "AX-ICICIT-S",
+            body = "INR 25,000.00 spent using ICICI Bank Card XX1000 on 01-Oct-26 at CRED CCBP RENT. " +
+                "Avl Limit: INR 75,000.00",
+            expected = trn(
+                type = EXPENSE,
+                amount = 25000.0,
+                counterparty = "CRED CCBP RENT",
+                account = "1000",
+                bank = "ICICI Bank",
+                ref = null,
+                date = LocalDate.of(2026, 10, 1),
             )
         ),
         HdfcUpiSent(

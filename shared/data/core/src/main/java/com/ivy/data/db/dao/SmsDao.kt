@@ -42,6 +42,9 @@ interface SmsDao {
     @Upsert
     suspend fun saveAccountLink(link: SmsAccountLinkEntity)
 
+    @Query("DELETE FROM sms_account_links WHERE `key` = :key")
+    suspend fun deleteAccountLink(key: String)
+
     @Query("SELECT * FROM sms_category_links WHERE merchantKey = :merchantKey")
     suspend fun findCategoryLink(merchantKey: String): SmsCategoryLinkEntity?
 

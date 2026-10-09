@@ -1,5 +1,6 @@
 package com.ivy.smstransactions.store
 
+import com.ivy.base.model.TransactionType
 import com.ivy.base.time.TimeProvider
 import com.ivy.data.db.dao.SmsDao
 import com.ivy.data.db.dao.read.AccountDao
@@ -22,16 +23,28 @@ data class RecordedSmsTransaction(
     val suggestion: SmsSuggestion,
 )
 
-/** The account and category the user chose last time for this SMS account / merchant. */
-@Suppress("DataClassTypedIDs") // ids of Room entities
+/**
+ * What the user chose last time for this SMS account / merchant: the account, and either
+ * the category or, for a transfer, the account the money goes to.
+ */
+@Suppress("DataClassTypedIDs", "DataClassDefaultValues") // ids of Room entities; transfer-only fields
 data class SmsSuggestion(
+    /** The SMS's type, or a transfer when the user saved this merchant as one before. */
+    val type: TransactionType,
     val accountId: UUID?,
     val accountName: String?,
     val categoryId: UUID?,
     val categoryName: String?,
+    val toAccountId: UUID? = null,
+    val toAccountName: String? = null,
 ) {
-    /** Both are known, so the transaction can be saved without opening the app. */
-    val isComplete: Boolean get() = accountId != null && categoryId != null
+    /** Everything is known, so the transaction can be saved without opening the app. */
+    val isComplete: Boolean
+        get() = if (type == TransactionType.TRANSFER) {
+            accountId != null && toAccountId != null && accountId != toAccountId
+        } else {
+            accountId != null && categoryId != null
+        }
 }
 
 /**
@@ -86,10 +99,31 @@ class SmsTransactionStore @Inject constructor(
         val account = SmsKeys.accountKey(entity.bank, entity.accountEnding)
             ?.let { dao.findAccountLink(it) }
             ?.let { accountDao.findById(it.accountId) }
+        // money the user sent to this merchant before was saved as a transfer to this account
+        val payeeAccount = SmsKeys.payeeKey(entity.counterparty)
+            ?.let { dao.findAccountLink(it) }
+            ?.let { accountDao.findById(it.accountId) }
+        val type = when {
+            entity.type == TransactionType.TRANSFER -> TransactionType.TRANSFER
+            entity.type == TransactionType.EXPENSE && payeeAccount != null -> TransactionType.TRANSFER
+            else -> entity.type
+        }
+        if (type == TransactionType.TRANSFER) {
+            return SmsSuggestion(
+                type = type,
+                accountId = account?.id,
+                accountName = account?.name,
+                categoryId = null,
+                categoryName = null,
+                toAccountId = payeeAccount?.id,
+                toAccountName = payeeAccount?.name,
+            )
+        }
         val category = SmsKeys.merchantKey(entity.counterparty)
             ?.let { dao.findCategoryLink(it) }
             ?.let { categoryDao.findById(it.categoryId) }
         return SmsSuggestion(
+            type = type,
             accountId = account?.id,
             accountName = account?.name,
             categoryId = category?.id,
@@ -98,18 +132,28 @@ class SmsTransactionStore @Inject constructor(
     }
 
     /**
-     * Marks the SMS transaction as added and remembers the account and category
-     * the user chose, so the next SMS from the same account/merchant is pre-filled.
+     * Marks the SMS transaction as added and remembers what the user chose, so the next SMS
+     * from the same account/merchant is pre-filled: the account, and either the category or,
+     * when saved as a transfer, the account the money went to ([toAccountId]).
      */
-    suspend fun markAdded(id: UUID, accountId: UUID, categoryId: UUID?) {
+    suspend fun markAdded(id: UUID, accountId: UUID, categoryId: UUID?, toAccountId: UUID?) {
         val entity = dao.findById(id) ?: return
         dao.updateStatus(id, SmsTransactionStatus.ADDED)
         val now = timeProvider.utcNow()
         SmsKeys.accountKey(entity.bank, entity.accountEnding)?.let { key ->
             dao.saveAccountLink(SmsAccountLinkEntity(key = key, accountId = accountId, updatedAt = now))
         }
+        val payee = SmsKeys.payeeKey(entity.counterparty)
+        if (payee != null && entity.type != TransactionType.INCOME) {
+            if (toAccountId != null) {
+                dao.saveAccountLink(SmsAccountLinkEntity(key = payee, accountId = toAccountId, updatedAt = now))
+            } else {
+                // saved as an expense this time: stop suggesting a transfer for this merchant
+                dao.deleteAccountLink(payee)
+            }
+        }
         val merchant = SmsKeys.merchantKey(entity.counterparty)
-        if (merchant != null && categoryId != null) {
+        if (merchant != null && categoryId != null && toAccountId == null) {
             dao.saveCategoryLink(
                 SmsCategoryLinkEntity(merchantKey = merchant, categoryId = categoryId, updatedAt = now)
             )

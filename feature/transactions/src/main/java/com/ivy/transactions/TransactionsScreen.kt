@@ -63,6 +63,7 @@ import com.ivy.base.legacy.Theme
 import com.ivy.base.legacy.Transaction
 import com.ivy.base.legacy.stringRes
 import com.ivy.base.model.TransactionType
+import com.ivy.data.model.AccountId
 import com.ivy.data.model.Category
 import com.ivy.design.api.LocalTimeConverter
 import com.ivy.design.api.LocalTimeFormatter
@@ -103,6 +104,7 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import java.math.BigDecimal
 import java.util.UUID
+import kotlin.math.roundToLong
 
 @Composable
 fun BoxWithConstraintsScope.TransactionsScreen(screen: TransactionsScreen) {
@@ -211,7 +213,8 @@ fun BoxWithConstraintsScope.TransactionsScreen(screen: TransactionsScreen) {
         onChoosePeriodModal = {
             viewModel.onEvent(TransactionsEvent.OnChoosePeriodModalData(it))
         },
-        choosePeriodModal = uiState.choosePeriodModal
+        choosePeriodModal = uiState.choosePeriodModal,
+        lastBillPaymentAccountId = uiState.lastBillPaymentAccountId,
     )
 }
 
@@ -242,6 +245,7 @@ private fun BoxWithConstraintsScope.UI(
 
     historyGroups: ImmutableList<TransactionDayGroupUi>,
     shouldShowAccountSpecificColorInTransactions: Boolean,
+    lastBillPaymentAccountId: AccountId?,
 
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
@@ -369,6 +373,21 @@ private fun BoxWithConstraintsScope.UI(
                 income = AmountFormat.format(income, currency),
                 expenses = AmountFormat.format(expenses, currency),
                 onBalanceClick = { editAccount(true) },
+                // a card (or any account) in debt: pay it off from another account in one step
+                payBill = AmountFormat.format(-balance, currency).takeIf { account != null && balance < 0 },
+                onPayBill = {
+                    nav.navigateTo(
+                        EditTransactionScreen(
+                            initialTransactionId = null,
+                            type = TransactionType.TRANSFER,
+                            accountId = lastBillPaymentAccountId?.value
+                                ?: accounts.firstOrNull { it.id != account?.id && it.includeInBalance }?.id,
+                            toAccountId = account?.id,
+                            amount = (-balance * 100).roundToLong() / 100.0,
+                            title = "Card bill",
+                        )
+                    )
+                },
                 onIncomeClick = { openPieChart(TransactionType.INCOME) },
                 onExpensesClick = { openPieChart(TransactionType.EXPENSE) },
                 onAdd = { type ->
@@ -575,6 +594,9 @@ private fun SummaryCard(
     income: String,
     expenses: String,
     onBalanceClick: () -> Unit,
+    /** "₹6,046.00" to pay off, or null when the account isn't in debt */
+    payBill: String?,
+    onPayBill: () -> Unit,
     onIncomeClick: () -> Unit,
     onExpensesClick: () -> Unit,
     onAdd: (TransactionType) -> Unit,
@@ -636,6 +658,9 @@ private fun SummaryCard(
                 onClick = onExpensesClick.takeIf { isAccount },
             )
         }
+        if (payBill != null) {
+            PayBillButton(amount = payBill, onClick = onPayBill)
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             AddButton(modifier = Modifier.weight(1f), label = "Add expense") { onAdd(TransactionType.EXPENSE) }
             AddButton(modifier = Modifier.weight(1f), label = "Add income") { onAdd(TransactionType.INCOME) }
@@ -682,6 +707,23 @@ private fun AddButton(label: String, modifier: Modifier = Modifier, onClick: () 
         Icon(Icons.Filled.Add, contentDescription = null, tint = colors.onPrimaryTint, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(6.dp))
         Text(text = label, style = RevampType.body, color = colors.onPrimaryTint)
+    }
+}
+
+@Composable
+private fun PayBillButton(amount: String, onClick: () -> Unit) {
+    val colors = revampColors()
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .clip(CircleShape)
+            .background(colors.primary)
+            .clickable(role = Role.Button, onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Text(text = "Pay bill · $amount", style = RevampType.bodyStrong, color = colors.onPrimary)
     }
 }
 
@@ -757,7 +799,8 @@ private fun BoxWithConstraintsScope.Preview_empty() {
             onChoosePeriodModal = {},
             choosePeriodModal = null,
             screen = TransactionsScreen(),
-            shouldShowAccountSpecificColorInTransactions = false
+            shouldShowAccountSpecificColorInTransactions = false,
+            lastBillPaymentAccountId = null,
         )
     }
 }
@@ -804,7 +847,8 @@ private fun BoxWithConstraintsScope.Preview_crypto() {
             onChoosePeriodModal = {},
             choosePeriodModal = null,
             screen = TransactionsScreen(),
-            shouldShowAccountSpecificColorInTransactions = false
+            shouldShowAccountSpecificColorInTransactions = false,
+            lastBillPaymentAccountId = null,
         )
     }
 }
@@ -880,7 +924,8 @@ private fun BoxWithConstraintsScope.Preview_empty_upcoming() {
             onChoosePeriodModal = {},
             choosePeriodModal = null,
             screen = TransactionsScreen(),
-            shouldShowAccountSpecificColorInTransactions = false
+            shouldShowAccountSpecificColorInTransactions = false,
+            lastBillPaymentAccountId = null,
         )
     }
 }
