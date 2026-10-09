@@ -7,9 +7,9 @@ import androidx.core.app.NotificationCompat
 import com.ivy.base.model.TransactionType
 import com.ivy.data.db.entity.SmsTransactionEntity
 import com.ivy.domain.AppStarter
-import com.ivy.domain.TransactionPrefill
 import com.ivy.smstransactions.store.RecordedSmsTransaction
 import com.ivy.smstransactions.store.SmsSuggestion
+import com.ivy.smstransactions.store.toPrefill
 import com.ivy.wallet.android.notification.IvyNotificationChannel
 import com.ivy.wallet.android.notification.NotificationService
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -69,18 +69,7 @@ class SmsTransactionNotifier @Inject constructor(
 
     /** Opens "add transaction" pre-filled with the SMS details and the learned account/category. */
     fun addTransactionIntent(trn: SmsTransactionEntity, suggestion: SmsSuggestion): Intent =
-        appStarter.getAddTransactionIntent(
-            type = trn.type,
-            prefill = TransactionPrefill(
-                amount = trn.amount,
-                title = trn.counterparty,
-                description = trn.toDescription(),
-                dateTime = trn.dateTime,
-                accountId = suggestion.accountId,
-                categoryId = suggestion.categoryId,
-                smsTransactionId = trn.id,
-            )
-        )
+        appStarter.getAddTransactionIntent(type = trn.type, prefill = trn.toPrefill(suggestion))
 
     private fun contentText(trn: SmsTransactionEntity, suggestion: SmsSuggestion): String {
         val learned = listOfNotNull(suggestion.accountName, suggestion.categoryName)
@@ -90,13 +79,6 @@ class SmsTransactionNotifier @Inject constructor(
 
     private fun SmsTransactionEntity.typeLabel(): String =
         if (type == TransactionType.INCOME) "Income" else "Expense"
-
-    private fun SmsTransactionEntity.toDescription(): String = listOfNotNull(
-        "Added from SMS",
-        bank,
-        accountEnding?.let { "A/c XX$it" },
-        reference?.let { "Ref $it" },
-    ).joinToString(" · ")
 
     companion object {
         private val INR_FORMAT: NumberFormat = NumberFormat.getCurrencyInstance(Locale("en", "IN"))

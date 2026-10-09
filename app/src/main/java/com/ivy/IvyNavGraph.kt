@@ -12,6 +12,7 @@ import com.ivy.contributors.ContributorsScreenImpl
 import com.ivy.disclaimer.DisclaimerScreenImpl
 import com.ivy.exchangerates.ExchangeRatesScreen
 import com.ivy.features.FeaturesScreenImpl
+import com.ivy.smstransactions.review.SmsReviewScreenImpl
 import com.ivy.importdata.csv.CSVScreen
 import com.ivy.importdata.csvimport.ImportCSVScreen
 import com.ivy.loans.loan.LoansScreen
@@ -28,6 +29,7 @@ import com.ivy.navigation.EditPlannedScreen
 import com.ivy.navigation.EditTransactionScreen
 import com.ivy.navigation.ExchangeRatesScreen
 import com.ivy.navigation.FeaturesScreen
+import com.ivy.navigation.SmsReviewScreen
 import com.ivy.navigation.ImportScreen
 import com.ivy.navigation.LoanDetailsScreen
 import com.ivy.navigation.LoansScreen
@@ -83,6 +85,7 @@ fun BoxWithConstraintsScope.IvyNavGraph(screen: Screen?) {
         is SearchScreen -> SearchScreen(screen = screen)
         is CSVScreen -> CSVScreen(screen = screen)
         FeaturesScreen -> FeaturesScreenImpl()
+        SmsReviewScreen -> SmsReviewScreenImpl()
         AttributionsScreen -> AttributionsScreenImpl()
         ContributorsScreen -> ContributorsScreenImpl()
         ReleasesScreen -> ReleasesScreenImpl()

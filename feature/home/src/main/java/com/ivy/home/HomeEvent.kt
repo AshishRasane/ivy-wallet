@@ -27,6 +27,8 @@ sealed interface HomeEvent {
 
     data class DismissCustomerJourneyCard(val card: CustomerJourneyCardModel) : HomeEvent
 
+    data object ReviewSmsTransactions : HomeEvent
+
     data object SelectNextMonth : HomeEvent
     data object SelectPreviousMonth : HomeEvent
 }

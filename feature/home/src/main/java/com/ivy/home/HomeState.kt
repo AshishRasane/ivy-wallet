@@ -34,5 +34,7 @@ data class HomeState(
     val hideBalance: Boolean,
     val hideIncome: Boolean,
     val expanded: Boolean,
-    val shouldShowAccountSpecificColorInTransactions: Boolean
+    val shouldShowAccountSpecificColorInTransactions: Boolean,
+    /** Bank SMS transactions waiting to be added or ignored. */
+    val pendingSmsCount: Int,
 )

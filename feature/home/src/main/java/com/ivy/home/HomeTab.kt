@@ -1,5 +1,19 @@
 package com.ivy.home
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import com.ivy.design.l0_system.UI
+import com.ivy.design.l0_system.style
+import com.ivy.design.l0_system.Ivy
+import com.ivy.design.l1_buildingBlocks.IvyIcon
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
@@ -190,6 +204,8 @@ fun BoxWithConstraintsScope.HomeUi(
 
             customerJourneyCards = uiState.customerJourneyCards,
             shouldShowAccountSpecificColorInTransactions = uiState.shouldShowAccountSpecificColorInTransactions,
+            pendingSmsCount = uiState.pendingSmsCount,
+            onReviewSms = { onEvent(HomeEvent.ReviewSmsTransactions) },
 
             onPayOrGet = forward<Transaction>() then2 {
                 HomeEvent.PayOrGetPlanned(it)
@@ -299,6 +315,8 @@ fun HomeLazyColumn(
     history: ImmutableList<TransactionHistoryItem>,
 
     customerJourneyCards: ImmutableList<CustomerJourneyCardModel>,
+    pendingSmsCount: Int,
+    onReviewSms: () -> Unit,
 
     setUpcomingExpanded: (Boolean) -> Unit,
     setOverdueExpanded: (Boolean) -> Unit,
@@ -361,6 +379,12 @@ fun HomeLazyColumn(
             Spacer(Modifier.height(16.dp))
 
             TransactionsDividerLine()
+        }
+
+        if (pendingSmsCount > 0) {
+            item {
+                SmsReviewBanner(count = pendingSmsCount, onClick = onReviewSms)
+            }
         }
 
         item {
@@ -432,7 +456,8 @@ private fun BoxWithConstraintsScope.PreviewHomeTab(isDark: Boolean = false) {
                 hideBalance = false,
                 hideIncome = false,
                 expanded = false,
-                shouldShowAccountSpecificColorInTransactions = false
+                shouldShowAccountSpecificColorInTransactions = false,
+                pendingSmsCount = 0,
             ),
             onEvent = {}
         )
@@ -449,5 +474,44 @@ fun HomeUiTest(isDark: Boolean) {
     }
     IvyWalletPreview(theme) {
         PreviewHomeTab(isDark)
+    }
+}
+
+@Composable
+private fun SmsReviewBanner(
+    count: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp)
+            .fillMaxWidth()
+            .clip(UI.shapes.r4)
+            .background(UI.colors.medium, UI.shapes.r4)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IvyIcon(
+            icon = R.drawable.ic_vue_messages_msg_notification,
+            tint = Ivy,
+            contentDescription = "",
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = if (count == 1) "1 bank SMS to review" else "$count bank SMS to review",
+                style = UI.typo.b2.style(fontWeight = FontWeight.Bold, color = UI.colors.pureInverse),
+            )
+            Text(
+                text = "Tap to add or ignore",
+                style = UI.typo.c.style(color = UI.colors.gray),
+            )
+        }
+        Text(
+            text = "Review",
+            style = UI.typo.b2.style(fontWeight = FontWeight.Bold, color = UI.colors.pureInverse),
+        )
     }
 }

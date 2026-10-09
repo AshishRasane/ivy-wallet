@@ -1,5 +1,5 @@
 plugins {
-    id("ivy.module")
+    id("ivy.feature")
 }
 
 android {
@@ -11,5 +11,6 @@ dependencies {
     implementation(projects.shared.data.core)
     implementation(projects.shared.domain)
     implementation(projects.shared.ui.core)
+    implementation(projects.shared.ui.navigation)
     implementation(projects.temp.legacyCode)
 }

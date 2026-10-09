@@ -1,5 +1,10 @@
 package com.ivy.home
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import com.ivy.data.db.dao.SmsDao
+import com.ivy.data.db.entity.SmsTransactionStatus
+import com.ivy.navigation.SmsReviewScreen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -92,7 +97,8 @@ class HomeViewModel @Inject constructor(
     private val transactionMapper: TransactionMapper,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
-    private val features: Features
+    private val features: Features,
+    private val smsDao: SmsDao,
 ) : ComposeViewModel<HomeState, HomeEvent>() {
     private var currentTheme by mutableStateOf(Theme.AUTO)
     private var name by mutableStateOf("")
@@ -154,8 +160,15 @@ class HomeViewModel @Inject constructor(
             hideBalance = getHideBalance(),
             expanded = getExpanded(),
             hideIncome = getHideIncome(),
-            shouldShowAccountSpecificColorInTransactions = getShouldShowAccountSpecificColorInTransactions()
+            shouldShowAccountSpecificColorInTransactions = getShouldShowAccountSpecificColorInTransactions(),
+            pendingSmsCount = getPendingSmsCount(),
         )
+    }
+
+    @Composable
+    private fun getPendingSmsCount(): Int {
+        return remember { smsDao.observeCountByStatus(SmsTransactionStatus.PENDING) }
+            .collectAsState(initial = 0).value
     }
 
     @Composable
@@ -251,6 +264,7 @@ class HomeViewModel @Inject constructor(
                 is HomeEvent.SetCurrency -> setCurrency(event.currency).fixUnit()
                 HomeEvent.SwitchTheme -> switchTheme()
                 is HomeEvent.DismissCustomerJourneyCard -> dismissCustomerJourneyCard(event.card)
+                HomeEvent.ReviewSmsTransactions -> nav.navigateTo(SmsReviewScreen)
                 is HomeEvent.SetExpanded -> setExpanded(event.expanded)
             }
         }

@@ -23,6 +23,9 @@ interface SmsDao {
     @Query("SELECT * FROM sms_transactions WHERE status = :status ORDER BY dateTime DESC")
     fun observeByStatus(status: String): Flow<List<SmsTransactionEntity>>
 
+    @Query("SELECT COUNT(*) FROM sms_transactions WHERE status = :status")
+    fun observeCountByStatus(status: String): Flow<Int>
+
     @Query("UPDATE sms_transactions SET status = :status WHERE id = :id")
     suspend fun updateStatus(id: UUID, status: String)
 

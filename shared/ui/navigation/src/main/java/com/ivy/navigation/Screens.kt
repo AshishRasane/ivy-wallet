@@ -145,6 +145,9 @@ data object ExchangeRatesScreen : Screen {
 
 data object FeaturesScreen : Screen
 
+/** Bank SMS transactions waiting to be added or ignored. */
+data object SmsReviewScreen : Screen
+
 data object AttributionsScreen : Screen
 
 data object ContributorsScreen : Screen
