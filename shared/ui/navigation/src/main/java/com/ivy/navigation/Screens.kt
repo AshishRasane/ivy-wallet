@@ -145,6 +145,12 @@ data object ExchangeRatesScreen : Screen {
 
 data object FeaturesScreen : Screen
 
+/** All accounts (opened from Home and the More tab). */
+data object AccountsScreen : Screen {
+    override val isLegacy: Boolean
+        get() = true
+}
+
 /** Bank SMS transactions waiting to be added or ignored. */
 data object SmsReviewScreen : Screen
 

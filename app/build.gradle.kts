@@ -122,6 +122,7 @@ android {
 }
 
 dependencies {
+    implementation(projects.feature.accounts)
     implementation(projects.feature.attributions)
     implementation(projects.feature.autoBackup)
     implementation(projects.feature.balance)

@@ -13,7 +13,7 @@ import com.ivy.design.l0_system.Ivy
 import com.ivy.design.l0_system.Orange
 import com.ivy.design.l0_system.Red
 import com.ivy.legacy.IvyWalletCtx
-import com.ivy.legacy.data.model.MainTab
+import com.ivy.navigation.AccountsScreen
 import com.ivy.navigation.EditPlannedScreen
 import com.ivy.navigation.PieChartStatisticScreen
 import com.ivy.poll.data.PollRepository
@@ -81,8 +81,8 @@ class CustomerJourneyCardsProvider @Inject constructor(
       ctaIcon = R.drawable.ic_custom_account_s,
       background = Gradient.solid(Ivy),
       hasDismiss = false,
-      onAction = { _, ivyContext, _ ->
-        ivyContext.selectMainTab(MainTab.ACCOUNTS)
+      onAction = { navigation, _, _ ->
+        navigation.navigateTo(AccountsScreen)
       }
     )
 

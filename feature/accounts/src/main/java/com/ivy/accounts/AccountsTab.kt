@@ -1,5 +1,13 @@
 package com.ivy.accounts
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.ivy.wallet.ui.theme.components.CircleButtonFilled
+import com.ivy.wallet.ui.theme.components.IvyBorderButton
+import com.ivy.wallet.ui.theme.modal.edit.AccountModal
+import com.ivy.wallet.ui.theme.modal.edit.AccountModalData
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -81,6 +89,7 @@ private fun BoxWithConstraintsScope.UI(
 ) {
     val nav = navigation()
     val ivyContext = com.ivy.legacy.ivyWalletCtx()
+    var accountModalData: AccountModalData? by remember { mutableStateOf(null) }
     var listState = rememberLazyListState()
     if (!state.accountsData.isEmpty()) {
         listState = rememberScrollPositionListState(
@@ -99,10 +108,10 @@ private fun BoxWithConstraintsScope.UI(
                 sensitivity = 200,
                 state = rememberSwipeListenerState(),
                 onSwipeLeft = {
-                    ivyContext.selectMainTab(com.ivy.legacy.data.model.MainTab.HOME)
+                    nav.back()
                 },
                 onSwipeRight = {
-                    ivyContext.selectMainTab(com.ivy.legacy.data.model.MainTab.HOME)
+                    nav.back()
                 }
             ),
         state = listState
@@ -113,7 +122,15 @@ private fun BoxWithConstraintsScope.UI(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Spacer(Modifier.width(24.dp))
+                Spacer(Modifier.width(16.dp))
+
+                CircleButtonFilled(
+                    icon = R.drawable.ic_back_android,
+                    contentDescription = "Back",
+                    onClick = { nav.back() }
+                )
+
+                Spacer(Modifier.width(12.dp))
 
                 Column {
                     Text(
@@ -174,9 +191,32 @@ private fun BoxWithConstraintsScope.UI(
         }
 
         item {
-            Spacer(Modifier.height(150.dp)) // scroll hack
+            Spacer(Modifier.height(24.dp))
+            IvyBorderButton(
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .fillMaxWidth(),
+                text = stringResource(R.string.add_account),
+                iconStart = R.drawable.ic_plus,
+                wrapContentMode = false,
+                onClick = {
+                    accountModalData = AccountModalData(
+                        account = null,
+                        balance = 0.0,
+                        baseCurrency = state.baseCurrency
+                    )
+                }
+            )
+            Spacer(Modifier.height(48.dp))
         }
     }
+
+    AccountModal(
+        modal = accountModalData,
+        onCreateAccount = { onEvent(AccountsEvent.CreateAccount(it)) },
+        onEditAccount = { _, _ -> },
+        dismiss = { accountModalData = null }
+    )
 
     ReorderModalSingleType(
         visible = state.reorderVisible,

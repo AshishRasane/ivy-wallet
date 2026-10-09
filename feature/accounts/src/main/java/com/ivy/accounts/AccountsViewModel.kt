@@ -1,5 +1,6 @@
 package com.ivy.accounts
 
+import com.ivy.legacy.domain.deprecated.logic.AccountCreator
 import android.annotation.SuppressLint
 import android.content.Context
 import androidx.compose.runtime.Composable
@@ -51,6 +52,7 @@ class AccountsViewModel @Inject constructor(
     private val features: Features,
     private val timeProvider: TimeProvider,
     private val timeConverter: TimeConverter,
+    private val accountCreator: AccountCreator,
 ) : ComposeViewModel<AccountsState, AccountsEvent>() {
     private var baseCurrency by mutableStateOf("")
     private var accountsData by mutableStateOf(listOf<AccountData>())
@@ -145,6 +147,7 @@ class AccountsViewModel @Inject constructor(
             when (event) {
                 is AccountsEvent.OnReorder -> reorder(event.reorderedList)
                 is AccountsEvent.OnReorderModalVisible -> reorderModalVisible(event.reorderVisible)
+                is AccountsEvent.CreateAccount -> accountCreator.createAccount(event.data) { startInternally() }
             }
         }
     }

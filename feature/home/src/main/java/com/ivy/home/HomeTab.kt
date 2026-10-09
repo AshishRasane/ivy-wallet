@@ -129,10 +129,10 @@ fun BoxWithConstraintsScope.HomeUi(
                 sensitivity = SWIPE_HORIZONTAL_THRESHOLD,
                 state = rememberSwipeListenerState(),
                 onSwipeLeft = {
-                    ivyContext.selectMainTab(MainTab.ACCOUNTS)
+                    ivyContext.selectMainTab(MainTab.TRANSACTIONS)
                 },
                 onSwipeRight = {
-                    ivyContext.selectMainTab(MainTab.ACCOUNTS)
+                    ivyContext.selectMainTab(MainTab.MORE)
                 }
             )
     ) {

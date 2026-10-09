@@ -8,7 +8,9 @@ android {
 
 dependencies {
     implementation(projects.feature.accounts)
+    implementation(projects.feature.autoBackup)
     implementation(projects.feature.home)
+    implementation(projects.feature.transactions)
     implementation(projects.shared.base)
     implementation(projects.shared.data.core)
     implementation(projects.shared.domain)
