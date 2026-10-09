@@ -2,45 +2,22 @@ package com.ivy.design.api.systems
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.BaselineShift
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ivy.base.legacy.Theme
 import com.ivy.design.api.IvyDesign
 import com.ivy.design.l0_system.*
-import com.ivy.ui.R
+import com.ivy.design.revamp.PlusJakartaSans
+import com.ivy.design.revamp.RevampAmoled
+import com.ivy.design.revamp.RevampDark
+import com.ivy.design.revamp.RevampLight
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 abstract class IvyWalletDesign : IvyDesign {
-    companion object {
-        const val OPEN_SANS_BASELINE_SHIFT = 0.075f
-        const val RALEWAY_BASELINE_SHIFT = 0.2f
-    }
-
     @Deprecated("Old design system. Use `:ivy-design` and Material3")
+    // Same font as the revamped screens, so old screens match them.
     override fun typography(): IvyTypography {
-        val openSans = FontFamily(
-            Font(R.font.opensans_regular, FontWeight.Normal),
-            Font(R.font.opensans_regular, FontWeight.Medium),
-            Font(R.font.opensans_bold, FontWeight.Black),
-            Font(R.font.opensans_semibold, FontWeight.SemiBold),
-            Font(R.font.opensans_bold, FontWeight.Bold),
-            Font(R.font.opensans_extrabold, FontWeight.ExtraBold),
-        )
-
-        val raleWay = FontFamily(
-            Font(R.font.raleway_regular, FontWeight.Normal),
-            Font(R.font.raleway_medium, FontWeight.Medium),
-            Font(R.font.raleway_black, FontWeight.Black),
-            Font(R.font.raleway_light, FontWeight.Light),
-            Font(R.font.raleway_semibold, FontWeight.SemiBold),
-            Font(R.font.raleway_bold, FontWeight.Bold),
-            Font(R.font.raleway_extrabold, FontWeight.ExtraBold),
-        )
-
         val h1 = 40.sp
         val h2 = 32.sp
         val b1 = 20.sp
@@ -49,65 +26,55 @@ abstract class IvyWalletDesign : IvyDesign {
 
         return object : IvyTypography {
             override val h1 = TextStyle(
-                fontFamily = raleWay,
+                fontFamily = PlusJakartaSans,
                 fontWeight = FontWeight.Black,
                 fontSize = h1,
-                baselineShift = BaselineShift(RALEWAY_BASELINE_SHIFT),
             )
             override val h2 = TextStyle(
-                fontFamily = raleWay,
+                fontFamily = PlusJakartaSans,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = h2,
-                baselineShift = BaselineShift(RALEWAY_BASELINE_SHIFT),
             )
             override val b1 = TextStyle(
-                fontFamily = raleWay,
+                fontFamily = PlusJakartaSans,
                 fontWeight = FontWeight.Bold,
                 fontSize = b1,
-                baselineShift = BaselineShift(RALEWAY_BASELINE_SHIFT),
             )
             override val b2 = TextStyle(
-                fontFamily = raleWay,
+                fontFamily = PlusJakartaSans,
                 fontWeight = FontWeight.Medium,
                 fontSize = b2,
-                baselineShift = BaselineShift(RALEWAY_BASELINE_SHIFT),
             )
             override val c = TextStyle(
-                fontFamily = raleWay,
+                fontFamily = PlusJakartaSans,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = c,
-                baselineShift = BaselineShift(RALEWAY_BASELINE_SHIFT),
             )
 
             override val nH1 = TextStyle(
-                fontFamily = openSans,
+                fontFamily = PlusJakartaSans,
                 fontWeight = FontWeight.Bold,
                 fontSize = h1,
-                baselineShift = BaselineShift(OPEN_SANS_BASELINE_SHIFT),
             )
             override val nH2 = TextStyle(
-                fontFamily = openSans,
+                fontFamily = PlusJakartaSans,
                 fontWeight = FontWeight.Bold,
                 fontSize = h2,
-                baselineShift = BaselineShift(OPEN_SANS_BASELINE_SHIFT),
             )
             override val nB1 = TextStyle(
-                fontFamily = openSans,
+                fontFamily = PlusJakartaSans,
                 fontWeight = FontWeight.Bold,
                 fontSize = b1,
-                baselineShift = BaselineShift(OPEN_SANS_BASELINE_SHIFT),
             )
             override val nB2 = TextStyle(
-                fontFamily = openSans,
+                fontFamily = PlusJakartaSans,
                 fontWeight = FontWeight.Normal,
                 fontSize = b2,
-                baselineShift = BaselineShift(OPEN_SANS_BASELINE_SHIFT),
             )
             override val nC = TextStyle(
-                fontFamily = openSans,
+                fontFamily = PlusJakartaSans,
                 fontWeight = FontWeight.Bold,
                 fontSize = c,
-                baselineShift = BaselineShift(OPEN_SANS_BASELINE_SHIFT),
             )
         }
     }
@@ -116,13 +83,13 @@ abstract class IvyWalletDesign : IvyDesign {
     override fun colors(theme: Theme, isDarkModeEnabled: Boolean): IvyColors {
         return when (theme) {
             Theme.LIGHT -> object : IvyColors {
-                override val pure = White
-                override val pureInverse = Black
+                override val pure = RevampLight.ground
+                override val pureInverse = RevampLight.ink
                 override val gray = Gray
-                override val medium = MediumWhite
+                override val medium = RevampLight.surface
                 override val mediumInverse = MediumBlack
 
-                override val primary = Purple
+                override val primary = RevampLight.primary
                 override val primary1 = IvyDark
 
                 override val green = Green
@@ -139,13 +106,13 @@ abstract class IvyWalletDesign : IvyDesign {
             }
 
             Theme.DARK -> object : IvyColors {
-                override val pure = Black
-                override val pureInverse = White
+                override val pure = RevampDark.ground
+                override val pureInverse = RevampDark.ink
                 override val gray = Gray
-                override val medium = MediumBlack
+                override val medium = RevampDark.surface
                 override val mediumInverse = MediumWhite
 
-                override val primary = Purple
+                override val primary = RevampDark.primary
                 override val primary1 = IvyLight
 
                 override val green = Green
@@ -162,13 +129,13 @@ abstract class IvyWalletDesign : IvyDesign {
             }
 
             Theme.AMOLED_DARK -> object : IvyColors {
-                override val pure = TrueBlack
-                override val pureInverse = White
+                override val pure = RevampAmoled.ground
+                override val pureInverse = RevampAmoled.ink
                 override val gray = Gray
-                override val medium = MediumBlack
+                override val medium = RevampAmoled.surface
                 override val mediumInverse = MediumWhite
 
-                override val primary = Purple
+                override val primary = RevampAmoled.primary
                 override val primary1 = IvyLight
 
                 override val green = Green

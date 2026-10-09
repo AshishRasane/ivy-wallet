@@ -33,7 +33,8 @@ data class RevampColors(
     val expenseTint: Color,
 )
 
-private val Light = RevampColors(
+/** Light palette; also used by the old design system so old screens match. */
+val RevampLight = RevampColors(
     ground = Color(0xFFF4F4F8),
     surface = Color(0xFFFFFFFF),
     border = Color(0xFFE4E4EC),
@@ -50,7 +51,7 @@ private val Light = RevampColors(
     expenseTint = Color(0xFFFBE5E8),
 )
 
-private val Dark = RevampColors(
+val RevampDark = RevampColors(
     ground = Color(0xFF0F0F14),
     surface = Color(0xFF1A1A22),
     border = Color(0xFF2C2C38),
@@ -67,7 +68,7 @@ private val Dark = RevampColors(
     expenseTint = Color(0xFF3D1A20),
 )
 
-private val Amoled = Dark.copy(
+val RevampAmoled = RevampDark.copy(
     ground = Color(0xFF000000),
     surface = Color(0xFF121217),
     divider = Color(0xFF1E1E26),
@@ -83,8 +84,8 @@ private const val TrueBlackLuminance = 0.001f
 fun revampColors(): RevampColors {
     val background = MaterialTheme.colorScheme.background.luminance()
     return when {
-        background < TrueBlackLuminance -> Amoled
-        background < DarkLuminance -> Dark
-        else -> Light
+        background < TrueBlackLuminance -> RevampAmoled
+        background < DarkLuminance -> RevampDark
+        else -> RevampLight
     }
 }

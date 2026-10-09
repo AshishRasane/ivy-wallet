@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.viewModelScope
 import arrow.core.toOption
@@ -43,6 +44,8 @@ import com.ivy.legacy.utils.isNotNullOrBlank
 import com.ivy.legacy.utils.selectEndTextFieldValue
 import com.ivy.navigation.Navigation
 import com.ivy.navigation.TransactionsScreen
+import com.ivy.transactions.revamp.LegacyHistoryRows
+import com.ivy.transactions.revamp.TransactionDayGroupUi
 import com.ivy.ui.ComposeViewModel
 import com.ivy.ui.R
 import com.ivy.wallet.domain.action.account.AccTrnsAct
@@ -152,6 +155,7 @@ class TransactionsViewModel @Inject constructor(
             initWithTransactions = getInitWithTransactions(),
             treatTransfersAsIncomeExpense = getTreatTransfersAsIncomeExpense(),
             history = getHistory(),
+            historyGroups = getHistoryGroups(),
             upcoming = getUpcoming(),
             upcomingExpanded = getUpcomingExpanded(),
             upcomingIncome = getUpcomingIncome(),
@@ -261,6 +265,25 @@ class TransactionsViewModel @Inject constructor(
     @Composable
     private fun getHistory(): ImmutableList<TransactionHistoryItem> {
         return history.value
+    }
+
+    @Composable
+    private fun getHistoryGroups(): ImmutableList<TransactionDayGroupUi> {
+        val history = history.value
+        val accounts = accounts.value
+        val categories = categories.value
+        val baseCurrency = baseCurrency.value
+        val focusAccountId = account.value?.id
+        return remember(history, accounts, categories, baseCurrency, focusAccountId) {
+            LegacyHistoryRows.group(
+                history = history,
+                accounts = accounts,
+                categories = categories,
+                baseCurrency = baseCurrency,
+                today = timeProvider.localDateNow(),
+                focusAccountId = focusAccountId,
+            )
+        }
     }
 
     @Composable

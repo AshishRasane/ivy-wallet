@@ -16,10 +16,10 @@ val Black = Color(0xFF111114)
 
 // Primary
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
-val Ivy = Color(0xFF6B4DFF)
+val Ivy = Color(0xFF5B3CF5) // revamp primary
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
-val Purple = Color(0xFF6B4DFF)
+val Purple = Color(0xFF5B3CF5) // revamp primary
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 val Purple1 = Color(0xFFC34CFF)

@@ -22,7 +22,7 @@ val Black = Color(0xFF111114)
 
 // Primary
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
-val Ivy = Color(0xFF6B4DFF)
+val Ivy = Color(0xFF5B3CF5) // revamp primary
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 val Blue = Color(0xFF4CC3FF)
@@ -94,8 +94,9 @@ val GradientGreen = Gradient(Green, Color(0xFF49F2C8))
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 val GradientOrangeRevert = Gradient(Color(0xFFF2CD9E), Orange)
 
+// Flat: the revamped design has no gradients.
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
-val GradientIvy = Gradient(Ivy, Color(0xFFAA99FF))
+val GradientIvy = Gradient(Ivy, Ivy)
 
 @Deprecated("Old design system. Use `:ivy-design` and Material3")
 fun Modifier.gradientCutBackgroundTop(

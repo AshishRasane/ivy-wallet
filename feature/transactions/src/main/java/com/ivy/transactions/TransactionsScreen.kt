@@ -1,6 +1,35 @@
 package com.ivy.transactions
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
+import com.ivy.design.revamp.AmountFormat
+import com.ivy.design.revamp.RevampCircleButton
+import com.ivy.design.revamp.RevampTopBar
+import com.ivy.design.revamp.RevampType
+import com.ivy.design.revamp.revampColors
+import com.ivy.legacy.ui.component.transaction.dueSections
+import com.ivy.transactions.revamp.TransactionDayGroup
+import com.ivy.transactions.revamp.AmountTone
+import com.ivy.transactions.revamp.TransactionDayGroupUi
+import com.ivy.transactions.revamp.TransactionRowUi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
@@ -9,12 +38,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -27,24 +54,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.ivy.base.legacy.Theme
 import com.ivy.base.legacy.Transaction
-import com.ivy.base.legacy.TransactionHistoryItem
 import com.ivy.base.legacy.stringRes
 import com.ivy.base.model.TransactionType
 import com.ivy.data.model.Category
 import com.ivy.design.api.LocalTimeConverter
 import com.ivy.design.api.LocalTimeFormatter
 import com.ivy.design.api.LocalTimeProvider
-import com.ivy.design.l0_system.UI
-import com.ivy.design.l0_system.style
 import com.ivy.design.utils.thenIf
 import com.ivy.legacy.Constants
 import com.ivy.legacy.IvyWalletPreview
@@ -54,13 +76,7 @@ import com.ivy.legacy.data.model.Month
 import com.ivy.legacy.data.model.TimePeriod
 import com.ivy.legacy.datamodel.Account
 import com.ivy.legacy.ivyWalletCtx
-import com.ivy.legacy.ui.component.IncomeExpensesCards
-import com.ivy.legacy.ui.component.ItemStatisticToolbar
-import com.ivy.legacy.ui.component.transaction.transactions
-import com.ivy.legacy.utils.balancePrefix
-import com.ivy.legacy.utils.clickableNoIndication
 import com.ivy.legacy.utils.horizontalSwipeListener
-import com.ivy.legacy.utils.rememberInteractionSource
 import com.ivy.legacy.utils.rememberSwipeListenerState
 import com.ivy.legacy.utils.setStatusBarDarkTextCompat
 import com.ivy.navigation.EditTransactionScreen
@@ -74,12 +90,6 @@ import com.ivy.ui.rememberScrollPositionListState
 import com.ivy.wallet.domain.pure.data.IncomeExpensePair
 import com.ivy.wallet.ui.theme.Gray
 import com.ivy.wallet.ui.theme.GreenDark
-import com.ivy.wallet.ui.theme.components.BalanceRow
-import com.ivy.wallet.ui.theme.components.BalanceRowMedium
-import com.ivy.wallet.ui.theme.components.ItemIconMDefaultIcon
-import com.ivy.wallet.ui.theme.dynamicContrast
-import com.ivy.wallet.ui.theme.findContrastTextColor
-import com.ivy.wallet.ui.theme.isDarkColor
 import com.ivy.wallet.ui.theme.modal.ChoosePeriodModal
 import com.ivy.wallet.ui.theme.modal.ChoosePeriodModalData
 import com.ivy.wallet.ui.theme.modal.DeleteConfirmationModal
@@ -89,7 +99,6 @@ import com.ivy.wallet.ui.theme.modal.edit.AccountModalData
 import com.ivy.wallet.ui.theme.modal.edit.CategoryModal
 import com.ivy.wallet.ui.theme.modal.edit.CategoryModalData
 import com.ivy.wallet.ui.theme.toComposeColor
-import com.ivy.wallet.ui.theme.wallet.PeriodSelector
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import java.math.BigDecimal
@@ -136,7 +145,7 @@ fun BoxWithConstraintsScope.TransactionsScreen(screen: TransactionsScreen) {
         initWithTransactions = uiState.initWithTransactions,
         treatTransfersAsIncomeExpense = uiState.treatTransfersAsIncomeExpense,
 
-        history = uiState.history,
+        historyGroups = uiState.historyGroups,
         shouldShowAccountSpecificColorInTransactions = uiState.showAccountColorsInTransactions,
 
         upcoming = uiState.upcoming,
@@ -231,7 +240,7 @@ private fun BoxWithConstraintsScope.UI(
     expenses: Double,
     choosePeriodModal: ChoosePeriodModalData?,
 
-    history: ImmutableList<TransactionHistoryItem>,
+    historyGroups: ImmutableList<TransactionDayGroupUi>,
     shouldShowAccountSpecificColorInTransactions: Boolean,
 
     onPreviousMonth: () -> Unit,
@@ -263,172 +272,179 @@ private fun BoxWithConstraintsScope.UI(
     onChoosePeriodModal: (ChoosePeriodModalData?) -> Unit,
 ) {
     val ivyContext = ivyWalletCtx()
+    val nav = navigation()
+    val colors = revampColors()
     val itemColor = (account?.color ?: category?.color?.value)?.toComposeColor() ?: Gray
 
     var categoryModalData: CategoryModalData? by remember { mutableStateOf(null) }
     var accountModalData: AccountModalData? by remember { mutableStateOf(null) }
+    val editAccount = { adjustBalance: Boolean ->
+        if (account != null) {
+            accountModalData = AccountModalData(
+                account = account,
+                baseCurrency = currency,
+                balance = balance,
+                adjustBalanceMode = adjustBalance,
+                autoFocusKeyboard = false
+            )
+        }
+    }
+    val openPieChart = { type: TransactionType ->
+        if (account != null) {
+            nav.navigateTo(
+                PieChartStatisticScreen(
+                    type = type,
+                    accountList = persistentListOf(account.id),
+                    filterExcluded = false,
+                    treatTransfersAsIncomeExpense = treatTransfersAsIncomeExpense
+                )
+            )
+        }
+    }
+    // opened from a transfer in the pie chart: editing or deleting the account/category doesn't apply
+    val canEdit = (account != null || category != null) &&
+        screen.transactions.none { it.type == TransactionType.TRANSFER }
 
+    val timeProvider = LocalTimeProvider.current
+    val timeConverter = LocalTimeConverter.current
+    val timeFormatter = LocalTimeFormatter.current
     val swipeListenerState = rememberSwipeListenerState()
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(itemColor)
+            .background(colors.ground)
+            .statusBarsPadding()
             .thenIf(!initWithTransactions) {
                 horizontalSwipeListener(
                     sensitivity = 150,
                     state = swipeListenerState,
-                    onSwipeLeft = {
-                        onNextMonth()
-                    },
-                    onSwipeRight = {
-                        onPreviousMonth()
-                    }
+                    onSwipeLeft = onNextMonth,
+                    onSwipeRight = onPreviousMonth,
                 )
             }
+            .testTag("item_stats_lazy_column"),
+        state = rememberScrollPositionListState(key = "item_stats_lazy_column"),
+        contentPadding = PaddingValues(bottom = 32.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        val listState = rememberScrollPositionListState(
-            key = "item_stats_lazy_column"
-        )
-        val density = LocalDensity.current
-
-        val timeProvider = LocalTimeProvider.current
-        val timeConverter = LocalTimeConverter.current
-        val timeFormatter = LocalTimeFormatter.current
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .padding(top = 16.dp)
-                .clip(UI.shapes.r1Top)
-                .background(UI.colors.pure)
-                .testTag("item_stats_lazy_column"),
-            state = listState,
-        ) {
+        item {
+            RevampTopBar(
+                title = account?.name ?: category?.name?.value ?: Constants.CATEGORY_UNSPECIFIED_NAME,
+                onBack = { nav.back() },
+            ) {
+                if (canEdit) {
+                    RevampCircleButton(
+                        icon = Icons.Filled.Edit,
+                        contentDescription = "Edit",
+                        onClick = {
+                            if (account != null) {
+                                editAccount(false)
+                            } else {
+                                categoryModalData = CategoryModalData(category = category, autoFocusKeyboard = false)
+                            }
+                        },
+                    )
+                    RevampCircleButton(
+                        icon = Icons.Filled.DeleteOutline,
+                        contentDescription = "Delete",
+                        onClick = { onDeleteModal1Visible(true) },
+                    )
+                }
+            }
+        }
+        item {
+            SummaryCard(
+                modifier = Modifier.padding(horizontal = ScreenPadding),
+                itemColor = itemColor,
+                isAccount = account != null,
+                excluded = account?.includeInBalance == false,
+                headline = if (account != null) {
+                    AmountFormat.format(balance, currency)
+                } else {
+                    AmountFormat.format(income - expenses, currency, signed = true)
+                },
+                inBaseCurrency = balanceBaseCurrency
+                    ?.takeIf { account != null && currency != baseCurrency }
+                    ?.let { AmountFormat.format(it, baseCurrency) },
+                income = AmountFormat.format(income, currency),
+                expenses = AmountFormat.format(expenses, currency),
+                onBalanceClick = { editAccount(true) },
+                onIncomeClick = { openPieChart(TransactionType.INCOME) },
+                onExpensesClick = { openPieChart(TransactionType.EXPENSE) },
+                onAdd = { type ->
+                    nav.navigateTo(
+                        EditTransactionScreen(
+                            initialTransactionId = null,
+                            type = type,
+                            accountId = account?.id,
+                            categoryId = category?.id?.value
+                        )
+                    )
+                },
+            )
+        }
+        if (!initWithTransactions) {
             item {
-                Header(
-                    screen = screen,
-                    history = history,
-                    income = income,
-                    expenses = expenses,
-                    currency = currency,
-                    baseCurrency = baseCurrency,
-                    itemColor = itemColor,
-                    account = account,
-                    category = category,
-                    balance = balance,
-                    balanceBaseCurrency = balanceBaseCurrency,
-                    treatTransfersAsIncomeExpense = treatTransfersAsIncomeExpense,
-
-                    onDelete = {
-                        onDeleteModal1Visible(true)
-                    },
-                    onEdit = {
-                        when {
-                            account != null -> {
-                                accountModalData = AccountModalData(
-                                    account = account,
-                                    baseCurrency = currency,
-                                    balance = balance,
-                                    autoFocusKeyboard = false
-                                )
-                            }
-
-                            category != null -> {
-                                categoryModalData = CategoryModalData(
-                                    category = category,
-                                    autoFocusKeyboard = false
-                                )
-                            }
-                        }
-                    },
-
-                    onBalanceClick = {
-                        when {
-                            account != null -> {
-                                accountModalData = AccountModalData(
-                                    account = account,
-                                    baseCurrency = currency,
-                                    balance = balance,
-                                    adjustBalanceMode = true,
-                                    autoFocusKeyboard = false
-                                )
-                            }
-                        }
-                    },
-                    showCategoryModal = {
-                        categoryModalData = CategoryModalData(
-                            category = category,
-                            autoFocusKeyboard = false
-                        )
-                    },
-                    showAccountModal = {
-                        accountModalData = AccountModalData(
-                            account = account,
-                            baseCurrency = currency,
-                            balance = balance,
-                            adjustBalanceMode = false,
-                            autoFocusKeyboard = false
-                        )
-                    }
+                PeriodSwitcher(
+                    period = period.toDisplayShort(
+                        startDateOfMonth = ivyContext.startDayOfMonth,
+                        timeConverter = timeConverter,
+                        timeProvider = timeProvider,
+                        timeFormatter = timeFormatter,
+                    ),
+                    onPrevious = onPreviousMonth,
+                    onNext = onNextMonth,
+                    onClick = { onChoosePeriodModal(ChoosePeriodModalData(period = period)) },
                 )
             }
+        }
 
-            choosePeriodModal(
-                period = period,
-                itemColor = itemColor,
-                initWithTransactions = initWithTransactions,
-                onPreviousMonth = onPreviousMonth,
-                onNextMonth = onNextMonth,
-                onChoosePeriodModal = onChoosePeriodModal
-            )
-
-            transactions(
-                baseData = AppBaseData(
-                    baseCurrency,
-                    accounts,
-                    categories
+        dueSections(
+            baseData = AppBaseData(baseCurrency, accounts, categories),
+            upcoming = LegacyDueSection(
+                trns = upcoming,
+                stats = IncomeExpensePair(
+                    income = upcomingIncome.toBigDecimal(),
+                    expense = upcomingExpenses.toBigDecimal()
                 ),
-                upcoming = LegacyDueSection(
-                    trns = upcoming,
-                    stats = IncomeExpensePair(
-                        income = upcomingIncome.toBigDecimal(),
-                        expense = upcomingExpenses.toBigDecimal()
-                    ),
-                    expanded = upcomingExpanded
+                expanded = upcomingExpanded
+            ),
+            overdue = LegacyDueSection(
+                trns = overdue,
+                stats = IncomeExpensePair(
+                    income = overdueIncome.toBigDecimal(),
+                    expense = overdueExpenses.toBigDecimal()
                 ),
-                setUpcomingExpanded = setUpcomingExpanded,
+                expanded = overdueExpanded
+            ),
+            shouldShowAccountSpecificColorInTransactions = shouldShowAccountSpecificColorInTransactions,
+            onPayOrGet = onPayOrGet,
+            setUpcomingExpanded = setUpcomingExpanded,
+            setOverdueExpanded = setOverdueExpanded,
+            onSkipTransaction = onSkipTransaction,
+            onSkipAllTransactions = { onSkipAllModalVisible(true) },
+        )
 
-                overdue = LegacyDueSection(
-                    trns = overdue,
-                    stats = IncomeExpensePair(
-                        income = overdueIncome.toBigDecimal(),
-                        expense = overdueExpenses.toBigDecimal()
-                    ),
-                    expanded = overdueExpanded
-                ),
-                setOverdueExpanded = setOverdueExpanded,
-
-                history = history,
-                lastItemSpacer = with(density) {
-                    (ivyContext.screenHeight * 0.7f).toDp()
+        if (historyGroups.isEmpty()) {
+            item {
+                Text(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = ScreenPadding, vertical = 32.dp),
+                    text = stringRes(R.string.no_transactions),
+                    style = RevampType.body,
+                    color = colors.inkMuted,
+                    textAlign = TextAlign.Center,
+                )
+            }
+        }
+        items(historyGroups, key = { "day-${it.label}" }) { group ->
+            TransactionDayGroup(
+                modifier = Modifier.padding(horizontal = ScreenPadding),
+                group = group,
+                onTransactionClick = { row ->
+                    nav.navigateTo(EditTransactionScreen(initialTransactionId = row.id, type = row.type))
                 },
-
-                onPayOrGet = onPayOrGet,
-                onSkipTransaction = onSkipTransaction,
-                onSkipAllTransactions = {
-                    onSkipAllModalVisible(true)
-                },
-                emptyStateTitle = stringRes(R.string.no_transactions),
-                emptyStateText = stringRes(
-                    R.string.no_transactions_for_period,
-                    period.toDisplayLong(
-                        startDateOfMonth = ivyContext.startDayOfMonth,
-                        timeProvider = timeProvider,
-                        timeConverter = timeConverter,
-                        timeFormatter = timeFormatter,
-                    )
-                ),
-                shouldShowAccountSpecificColorInTransactions = shouldShowAccountSpecificColorInTransactions
             )
         }
     }
@@ -473,44 +489,6 @@ private fun BoxWithConstraintsScope.UI(
         }
     ) {
         onSetPeriod(it)
-    }
-}
-
-private fun LazyListScope.choosePeriodModal(
-    period: TimePeriod,
-    itemColor: Color,
-    initWithTransactions: Boolean,
-    onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit,
-    onChoosePeriodModal: (ChoosePeriodModalData?) -> Unit,
-) {
-    item {
-        // Rounded corners top effect
-        Box {
-            Spacer(
-                Modifier
-                    .height(32.dp)
-                    .fillMaxWidth()
-                    .background(itemColor) // itemColor is displayed below the clip
-                    .background(UI.colors.pure, UI.shapes.r1Top)
-            )
-
-            PeriodSelector(
-                modifier = Modifier.padding(top = 16.dp),
-                period = period,
-                onPreviousMonth = { if (!initWithTransactions) onPreviousMonth() },
-                onNextMonth = { if (!initWithTransactions) onNextMonth() },
-                onShowChoosePeriodModal = {
-                    if (!initWithTransactions) {
-                        onChoosePeriodModal(
-                            ChoosePeriodModalData(
-                                period = period
-                            )
-                        )
-                    }
-                }
-            )
-        }
     }
 }
 
@@ -583,242 +561,161 @@ private fun BoxWithConstraintsScope.DeleteModals(
     }
 }
 
+private val ScreenPadding = 20.dp
+
+/** Balance (account) or net amount (category), this period's income/expenses and add buttons. */
 @Suppress("LongParameterList")
 @Composable
-private fun Header(
-    screen: TransactionsScreen,
-    history: ImmutableList<TransactionHistoryItem>,
-    currency: String,
-    baseCurrency: String,
+private fun SummaryCard(
     itemColor: Color,
-    account: Account?,
-    category: Category?,
-    balance: Double,
-    balanceBaseCurrency: Double?,
-    income: Double,
-    expenses: Double,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-
+    isAccount: Boolean,
+    excluded: Boolean,
+    headline: String,
+    inBaseCurrency: String?,
+    income: String,
+    expenses: String,
     onBalanceClick: () -> Unit,
-    showCategoryModal: () -> Unit,
-    showAccountModal: () -> Unit,
-    treatTransfersAsIncomeExpense: Boolean = false,
+    onIncomeClick: () -> Unit,
+    onExpensesClick: () -> Unit,
+    onAdd: (TransactionType) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val contrastColor = findContrastTextColor(itemColor)
-
-    val darkColor = isDarkColor(itemColor)
-    setStatusBarDarkTextCompat(darkText = !darkColor)
-
+    val colors = revampColors()
     Column(
-        modifier = Modifier.background(itemColor)
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(colors.surface)
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Spacer(Modifier.height(20.dp))
-
-        val hideEditAndDeleteButtonForAccountTransfer =
-            screen.transactions.none { it.type == TransactionType.TRANSFER }
-
-        ItemStatisticToolbar(
-            contrastColor = contrastColor,
-            onEdit = onEdit,
-            onDelete = onDelete,
-            showEditButton = hideEditAndDeleteButtonForAccountTransfer,
-            showDeleteButton = hideEditAndDeleteButtonForAccountTransfer,
-        )
-
-        Spacer(Modifier.height(24.dp))
-
-        Item(
-            contrastColor = contrastColor,
-            account = account,
-            category = category,
-            showAccountModal = showAccountModal,
-            showCategoryModal = showCategoryModal
-        )
-
-        BalanceRow(
-            modifier = Modifier
-                .padding(start = 32.dp)
-                .testTag("balance")
-                .clickableNoIndication(rememberInteractionSource()) {
-                    onBalanceClick()
-                },
-            textColor = contrastColor,
-            currency = currency,
-            balance = balance,
-            balanceAmountPrefix = if (category != null) {
-                balancePrefix(
-                    income = income,
-                    expenses = expenses
-                )
-            } else {
-                null
-            }
-        )
-
-        if (currency != baseCurrency && balanceBaseCurrency != null) {
-            BalanceRowMedium(
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
                 modifier = Modifier
-                    .padding(start = 32.dp)
-                    .clickableNoIndication(rememberInteractionSource()) {
-                        onBalanceClick()
-                    },
-                textColor = itemColor.dynamicContrast(),
-                currency = baseCurrency,
-                balance = balanceBaseCurrency,
-                balanceAmountPrefix = if (category != null) {
-                    balancePrefix(
-                        income = income,
-                        expenses = expenses
-                    )
-                } else {
-                    null
-                }
+                    .size(12.dp)
+                    .clip(CircleShape)
+                    .background(itemColor)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = when {
+                    !isAccount -> "Net this period"
+                    excluded -> "Balance · Not in net worth"
+                    else -> "Balance"
+                },
+                style = RevampType.label,
+                color = colors.inkMuted,
             )
         }
-
-        Spacer(Modifier.height(20.dp))
-
-        val nav = navigation()
-        IncomeExpensesCards(
-            history = history,
-            currency = currency,
-            income = income,
-            expenses = expenses,
-
-            hasAddButtons = true,
-
-            itemColor = itemColor,
-            incomeHeaderCardClicked = {
-                if (account != null) {
-                    nav.navigateTo(
-                        PieChartStatisticScreen(
-                            type = TransactionType.INCOME,
-                            accountList = persistentListOf(account.id),
-                            filterExcluded = false,
-                            treatTransfersAsIncomeExpense = treatTransfersAsIncomeExpense
-                        )
-                    )
+        Column(
+            modifier = Modifier
+                .thenIf(isAccount) {
+                    clickable(role = Role.Button, onClickLabel = "Adjust balance", onClick = onBalanceClick)
                 }
-            },
-            expenseHeaderCardClicked = {
-                if (account != null) {
-                    nav.navigateTo(
-                        PieChartStatisticScreen(
-                            type = TransactionType.EXPENSE,
-                            accountList = persistentListOf(account.id),
-                            filterExcluded = false,
-                            treatTransfersAsIncomeExpense = treatTransfersAsIncomeExpense
-                        )
-                    )
-                }
+        ) {
+            Text(text = headline, style = RevampType.display, color = colors.ink)
+            if (inBaseCurrency != null) {
+                Text(text = inBaseCurrency, style = RevampType.label, color = colors.inkMuted)
             }
-        ) { trnType ->
-            nav.navigateTo(
-                EditTransactionScreen(
-                    initialTransactionId = null,
-                    type = trnType,
-                    accountId = account?.id,
-                    categoryId = category?.id?.value
-                )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            FlowTile(
+                modifier = Modifier.weight(1f),
+                label = "Income",
+                amount = income,
+                amountColor = colors.income,
+                tint = colors.incomeTint,
+                onClick = onIncomeClick.takeIf { isAccount },
+            )
+            FlowTile(
+                modifier = Modifier.weight(1f),
+                label = "Expenses",
+                amount = expenses,
+                amountColor = colors.expense,
+                tint = colors.expenseTint,
+                onClick = onExpensesClick.takeIf { isAccount },
             )
         }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            AddButton(modifier = Modifier.weight(1f), label = "Add expense") { onAdd(TransactionType.EXPENSE) }
+            AddButton(modifier = Modifier.weight(1f), label = "Add income") { onAdd(TransactionType.INCOME) }
+        }
+    }
+}
 
-        Spacer(Modifier.height(20.dp))
+@Suppress("LongParameterList")
+@Composable
+private fun FlowTile(
+    label: String,
+    amount: String,
+    amountColor: Color,
+    tint: Color,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val colors = revampColors()
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(tint)
+            .thenIf(onClick != null) { clickable(role = Role.Button, onClick = { onClick?.invoke() }) }
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(text = label, style = RevampType.label, color = colors.inkMuted)
+        Text(text = amount, style = RevampType.amount, color = amountColor, maxLines = 1)
     }
 }
 
 @Composable
-private fun Item(
-    contrastColor: Color,
-    account: Account?,
-    category: Category?,
+private fun AddButton(label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val colors = revampColors()
+    Row(
+        modifier = modifier
+            .heightIn(min = 44.dp)
+            .clip(CircleShape)
+            .background(colors.primaryTint)
+            .clickable(role = Role.Button, onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Icon(Icons.Filled.Add, contentDescription = null, tint = colors.onPrimaryTint, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(text = label, style = RevampType.body, color = colors.onPrimaryTint)
+    }
+}
 
-    showCategoryModal: () -> Unit,
-    showAccountModal: () -> Unit,
+@Composable
+private fun PeriodSwitcher(
+    period: String,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onClick: () -> Unit,
 ) {
+    val colors = revampColors()
     Row(
         modifier = Modifier
-            .padding(start = 22.dp)
-            .clickableNoIndication(rememberInteractionSource()) {
-                when {
-                    account != null -> {
-                        showAccountModal()
-                    }
-
-                    category != null -> {
-                        showCategoryModal()
-                    }
-                }
-            },
-        verticalAlignment = Alignment.CenterVertically
+            .fillMaxWidth()
+            .padding(horizontal = ScreenPadding - 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        when {
-            account != null -> {
-                ItemIconMDefaultIcon(
-                    iconName = account.icon,
-                    defaultIcon = R.drawable.ic_custom_account_m,
-                    tint = contrastColor
-                )
-
-                Spacer(Modifier.width(8.dp))
-
-                Text(
-                    text = account.name,
-                    style = UI.typo.b1.style(
-                        color = contrastColor,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                )
-
-                if (!account.includeInBalance) {
-                    Spacer(Modifier.width(8.dp))
-
-                    Text(
-                        text = stringRes(R.string.excluded),
-                        style = UI.typo.c.style(
-                            color = account.color.toComposeColor().dynamicContrast()
-                        )
-                    )
-                }
-            }
-
-            category != null -> {
-                ItemIconMDefaultIcon(
-                    iconName = category.icon?.id,
-                    defaultIcon = R.drawable.ic_custom_category_m,
-                    tint = contrastColor
-                )
-
-                Spacer(Modifier.width(8.dp))
-
-                Text(
-                    text = category.name.value,
-                    style = UI.typo.b1.style(
-                        color = contrastColor,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                )
-            }
-
-            else -> {
-                // Unspecified
-                ItemIconMDefaultIcon(
-                    iconName = null,
-                    defaultIcon = R.drawable.ic_custom_category_m,
-                    tint = contrastColor
-                )
-
-                Spacer(Modifier.width(8.dp))
-
-                Text(
-                    text = Constants.CATEGORY_UNSPECIFIED_NAME,
-                    style = UI.typo.b1.style(
-                        color = contrastColor,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                )
-            }
+        IconButton(onClick = onPrevious) {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous period", tint = colors.ink)
+        }
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .heightIn(min = 44.dp)
+                .clip(CircleShape)
+                .background(colors.surface)
+                .border(1.dp, colors.border, CircleShape)
+                .clickable(role = Role.Button, onClickLabel = "Choose period", onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(text = period, style = RevampType.body, color = colors.ink)
+        }
+        IconButton(onClick = onNext) {
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next period", tint = colors.ink)
         }
     }
 }
@@ -842,7 +739,7 @@ private fun BoxWithConstraintsScope.Preview_empty() {
             income = 8000.0,
             expenses = 6000.0,
 
-            history = persistentListOf(),
+            historyGroups = persistentListOf(),
             category = null,
             account = Account("DSK", color = GreenDark.toArgb(), icon = "pet"),
             onSetPeriod = { },
@@ -884,7 +781,7 @@ private fun BoxWithConstraintsScope.Preview_crypto() {
             income = 8000.0,
             expenses = 6000.0,
 
-            history = persistentListOf(),
+            historyGroups = persistentListOf(),
             category = null,
             account = Account(
                 name = "DSK",
@@ -912,14 +809,15 @@ private fun BoxWithConstraintsScope.Preview_crypto() {
     }
 }
 
+@Suppress("MagicNumber")
 @Preview
 @Composable
 private fun BoxWithConstraintsScope.Preview_empty_upcoming() {
     IvyPreview {
         UI(
             period = TimePeriod(month = Month.monthsList().first(), year = 2023),
-            baseCurrency = "BGN",
-            currency = "BGN",
+            baseCurrency = "INR",
+            currency = "INR",
 
             categories = persistentListOf(),
             accounts = persistentListOf(),
@@ -929,9 +827,37 @@ private fun BoxWithConstraintsScope.Preview_empty_upcoming() {
             income = 8000.0,
             expenses = 6000.0,
 
-            history = persistentListOf(),
+            historyGroups = persistentListOf(
+                TransactionDayGroupUi(
+                    label = "Today",
+                    total = "−₹2,885.00",
+                    totalTone = AmountTone.EXPENSE,
+                    rows = persistentListOf(
+                        TransactionRowUi(
+                            id = UUID(1L, 3L),
+                            type = TransactionType.EXPENSE,
+                            title = "Swiggy",
+                            subtitle = "Food & Drinks · HDFC Savings",
+                            initial = "S",
+                            amount = "−₹2,499.00",
+                            tone = AmountTone.EXPENSE,
+                            avatarColor = 0xFFA3410B.toInt(),
+                        ),
+                        TransactionRowUi(
+                            id = UUID(1L, 4L),
+                            type = TransactionType.EXPENSE,
+                            title = "Uber",
+                            subtitle = "Transport · HDFC Savings",
+                            initial = "U",
+                            amount = "−₹386.00",
+                            tone = AmountTone.EXPENSE,
+                            avatarColor = 0xFF1F4FA8.toInt(),
+                        ),
+                    ),
+                ),
+            ),
             category = null,
-            account = Account("DSK", color = GreenDark.toArgb(), icon = "pet"),
+            account = Account("HDFC Savings", color = GreenDark.toArgb(), icon = "pet"),
             onSetPeriod = { },
             onPreviousMonth = {},
             onNextMonth = {},

@@ -1,18 +1,13 @@
 package com.ivy.accounts
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import com.ivy.wallet.ui.theme.components.CircleButtonFilled
-import com.ivy.wallet.ui.theme.components.IvyBorderButton
-import com.ivy.wallet.ui.theme.modal.edit.AccountModal
-import com.ivy.wallet.ui.theme.modal.edit.AccountModalData
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,56 +15,63 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.ivy.base.legacy.Theme
 import com.ivy.data.model.Account
 import com.ivy.data.model.AccountId
 import com.ivy.data.model.primitive.AssetCode
 import com.ivy.data.model.primitive.ColorInt
-import com.ivy.data.model.primitive.IconAsset
 import com.ivy.data.model.primitive.NotBlankTrimmedString
 import com.ivy.design.l0_system.UI
 import com.ivy.design.l0_system.style
+import com.ivy.design.revamp.AmountFormat
+import com.ivy.design.revamp.RevampCircleButton
+import com.ivy.design.revamp.RevampTopBar
+import com.ivy.design.revamp.RevampType
+import com.ivy.design.revamp.revampColors
 import com.ivy.legacy.IvyWalletPreview
 import com.ivy.legacy.data.model.AccountData
-import com.ivy.legacy.utils.clickableNoIndication
-import com.ivy.legacy.utils.horizontalSwipeListener
-import com.ivy.legacy.utils.rememberInteractionSource
-import com.ivy.legacy.utils.rememberSwipeListenerState
 import com.ivy.navigation.TransactionsScreen
 import com.ivy.navigation.navigation
 import com.ivy.navigation.screenScopedViewModel
-import com.ivy.ui.R
-import com.ivy.ui.rememberScrollPositionListState
-import com.ivy.wallet.ui.theme.Green
-import com.ivy.wallet.ui.theme.GreenLight
-import com.ivy.wallet.ui.theme.components.BalanceRow
-import com.ivy.wallet.ui.theme.components.BalanceRowMini
-import com.ivy.wallet.ui.theme.components.ItemIconSDefaultIcon
-import com.ivy.wallet.ui.theme.components.ReorderButton
 import com.ivy.wallet.ui.theme.components.ReorderModalSingleType
-import com.ivy.wallet.ui.theme.dynamicContrast
 import com.ivy.wallet.ui.theme.findContrastTextColor
+import com.ivy.wallet.ui.theme.modal.edit.AccountModal
+import com.ivy.wallet.ui.theme.modal.edit.AccountModalData
 import com.ivy.wallet.ui.theme.toComposeColor
 import kotlinx.collections.immutable.persistentListOf
 import java.util.UUID
+
+private val ScreenPadding = 20.dp
+private const val NetWorthMutedAlpha = 0.72f
 
 @Composable
 fun BoxWithConstraintsScope.AccountsTab() {
@@ -88,126 +90,63 @@ private fun BoxWithConstraintsScope.UI(
     onEvent: (AccountsEvent) -> Unit = {}
 ) {
     val nav = navigation()
-    val ivyContext = com.ivy.legacy.ivyWalletCtx()
+    val colors = revampColors()
     var accountModalData: AccountModalData? by remember { mutableStateOf(null) }
-    var listState = rememberLazyListState()
-    if (!state.accountsData.isEmpty()) {
-        listState = rememberScrollPositionListState(
-            key = "accounts_lazy_column",
-            initialFirstVisibleItemIndex = ivyContext.accountsListState?.firstVisibleItemIndex ?: 0,
-            initialFirstVisibleItemScrollOffset = ivyContext.accountsListState?.firstVisibleItemScrollOffset
-                ?: 0
-        )
+    val openAccount = { data: AccountData ->
+        nav.navigateTo(TransactionsScreen(accountId = data.account.id.value, categoryId = null))
     }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
+            .background(colors.ground)
             .statusBarsPadding()
-            .navigationBarsPadding()
-            .horizontalSwipeListener(
-                sensitivity = 200,
-                state = rememberSwipeListenerState(),
-                onSwipeLeft = {
-                    nav.back()
-                },
-                onSwipeRight = {
-                    nav.back()
-                }
-            ),
-        state = listState
+            .navigationBarsPadding(),
+        contentPadding = PaddingValues(bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
-            Spacer(Modifier.height(32.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Spacer(Modifier.width(16.dp))
-
-                CircleButtonFilled(
-                    icon = R.drawable.ic_back_android,
-                    contentDescription = "Back",
-                    onClick = { nav.back() }
+            RevampTopBar(title = "Accounts", onBack = { nav.back() }) {
+                RevampCircleButton(
+                    icon = Icons.AutoMirrored.Filled.Sort,
+                    contentDescription = "Reorder accounts",
+                    onClick = { onEvent(AccountsEvent.OnReorderModalVisible(reorderVisible = true)) },
                 )
-
-                Spacer(Modifier.width(12.dp))
-
-                Column {
-                    Text(
-                        text = stringResource(R.string.accounts),
-                        style = UI.typo.b1.style(
-                            color = UI.colors.pureInverse,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    )
-                }
-
-                Spacer(Modifier.weight(1f))
-
-                ReorderButton {
-                    onEvent(
-                        AccountsEvent.OnReorderModalVisible(reorderVisible = true)
-                    )
-                }
-
-                Spacer(Modifier.width(24.dp))
             }
-            if (!state.hideTotalBalance) {
-                Column {
-                    Spacer(Modifier.height(16.dp))
-                    IncomeExpensesRow(
+        }
+        if (!state.hideTotalBalance) {
+            item {
+                NetWorthCard(
+                    modifier = Modifier.padding(horizontal = ScreenPadding, vertical = 6.dp),
+                    netWorth = AmountFormat.format(
+                        amount = state.totalBalanceWithoutExcluded.toDoubleOrNull() ?: 0.0,
                         currency = state.baseCurrency,
-                        incomeLabel = stringResource(id = R.string.total_balance),
-                        income = state.totalBalanceWithoutExcluded.toDoubleOrNull() ?: 0.00,
-                        expensesLabel = stringResource(id = R.string.total_balance_excluded),
-                        expenses = state.totalBalanceWithExcluded.toDoubleOrNull() ?: 0.00
-                    )
-                }
-                Spacer(Modifier.height(16.dp))
-            }
-        }
-        items(state.accountsData) {
-            Spacer(Modifier.height(16.dp))
-            AccountCard(
-                baseCurrency = state.baseCurrency,
-                accountData = it,
-                compactModeEnabled = state.compactAccountsModeEnabled,
-                onBalanceClick = {
-                    nav.navigateTo(
-                        TransactionsScreen(
-                            accountId = it.account.id.value,
-                            categoryId = null
-                        )
-                    )
-                }
-            ) {
-                nav.navigateTo(
-                    TransactionsScreen(
-                        accountId = it.account.id.value,
-                        categoryId = null
-                    )
+                    ),
+                    accounts = state.accountsData.size,
+                    notCounted = state.accountsData.count { !it.account.includeInBalance },
                 )
             }
         }
-
+        items(state.accountsData, key = { it.account.id.value }) { data ->
+            AccountCard(
+                modifier = Modifier.padding(horizontal = ScreenPadding),
+                data = data,
+                baseCurrency = state.baseCurrency,
+                showMonth = !state.compactAccountsModeEnabled,
+                onClick = { openAccount(data) },
+            )
+        }
         item {
-            Spacer(Modifier.height(24.dp))
-            IvyBorderButton(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .fillMaxWidth(),
-                text = stringResource(R.string.add_account),
-                iconStart = R.drawable.ic_plus,
-                wrapContentMode = false,
+            AddAccountButton(
+                modifier = Modifier.padding(horizontal = ScreenPadding, vertical = 8.dp),
                 onClick = {
                     accountModalData = AccountModalData(
                         account = null,
                         balance = 0.0,
                         baseCurrency = state.baseCurrency
                     )
-                }
+                },
             )
-            Spacer(Modifier.height(48.dp))
         }
     }
 
@@ -242,223 +181,190 @@ private fun BoxWithConstraintsScope.UI(
     }
 }
 
+/** Inverted card (dark on light theme, light on dark theme), as in the mockup. */
+@Composable
+private fun NetWorthCard(
+    netWorth: String,
+    accounts: Int,
+    notCounted: Int,
+    modifier: Modifier = Modifier,
+) {
+    val colors = revampColors()
+    val content = colors.surface
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(colors.ink)
+            .padding(horizontal = 20.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(text = "Net worth", style = RevampType.label, color = content.copy(alpha = NetWorthMutedAlpha))
+        Text(text = netWorth, style = RevampType.display, color = content)
+        Text(
+            text = buildString {
+                append(if (accounts == 1) "1 account" else "$accounts accounts")
+                if (notCounted > 0) append(" · $notCounted not counted")
+            },
+            style = RevampType.label,
+            color = content.copy(alpha = NetWorthMutedAlpha),
+        )
+    }
+}
+
 @Composable
 private fun AccountCard(
+    data: AccountData,
     baseCurrency: String,
-    accountData: AccountData,
-    compactModeEnabled: Boolean,
-    onBalanceClick: () -> Unit,
-    onClick: () -> Unit
+    showMonth: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = Modifier
-            .padding(horizontal = 16.dp)
+    val colors = revampColors()
+    val account = data.account
+    val currency = account.asset.code
+    val accountColor = account.color.value.toComposeColor()
+    Row(
+        modifier = modifier
             .fillMaxWidth()
-            .clip(UI.shapes.r4)
-            .border(2.dp, UI.colors.medium, UI.shapes.r4)
-            .clickable(
-                onClick = onClick
-            )
+            .clip(RoundedCornerShape(18.dp))
+            .background(colors.surface)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        val account = accountData.account
-        val contrastColor = findContrastTextColor(account.color.value.toComposeColor())
-        val currency = account.asset.code
-
-        AccountHeader(
-            accountData = accountData,
-            currency = currency,
-            baseCurrency = baseCurrency,
-            contrastColor = contrastColor,
-            onBalanceClick = onBalanceClick
-        )
-
-        if (!compactModeEnabled) {
-            Spacer(Modifier.height(12.dp))
-
-            IncomeExpensesRow(
-                currency = currency,
-                incomeLabel = stringResource(R.string.month_income),
-                income = accountData.monthlyIncome,
-                expensesLabel = stringResource(R.string.month_expenses),
-                expenses = accountData.monthlyExpenses
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(accountColor),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = account.name.value.take(1).uppercase(),
+                style = RevampType.title,
+                color = findContrastTextColor(accountColor),
             )
-
-            Spacer(Modifier.height(12.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = account.name.value,
+                style = RevampType.bodyStrong,
+                color = colors.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = if (account.includeInBalance) currency else "$currency · Not in net worth",
+                style = RevampType.label,
+                color = colors.inkMuted,
+            )
+            if (showMonth) {
+                MonthLine(income = data.monthlyIncome, expenses = data.monthlyExpenses, currency = currency)
+            }
+        }
+        Spacer(Modifier.width(8.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                text = AmountFormat.format(data.balance, currency),
+                style = RevampType.bodyStrong,
+                color = if (data.balance < 0) colors.expense else colors.ink,
+            )
+            val inBase = data.balanceBaseCurrency
+            if (currency != baseCurrency && inBase != null) {
+                Text(
+                    text = AmountFormat.format(inBase, baseCurrency),
+                    style = RevampType.label,
+                    color = colors.inkMuted,
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun AccountHeader(
-    accountData: AccountData,
-    currency: String,
-    baseCurrency: String,
-    contrastColor: Color,
-    onBalanceClick: () -> Unit
-) {
-    val account = accountData.account
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(account.color.value.toComposeColor(), UI.shapes.r4Top)
-    ) {
-        Spacer(Modifier.height(16.dp))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Spacer(Modifier.width(20.dp))
-
-            ItemIconSDefaultIcon(
-                iconName = account.icon?.id,
-                defaultIcon = R.drawable.ic_custom_account_s,
-                tint = contrastColor
-            )
-
-            Spacer(Modifier.width(8.dp))
-
-            Text(
-                text = account.name.value,
-                style = UI.typo.b1.style(
-                    color = contrastColor,
-                    fontWeight = FontWeight.ExtraBold
-                )
-            )
-
-            if (!account.includeInBalance) {
-                Spacer(Modifier.width(8.dp))
-
-                Text(
-                    text = stringResource(R.string.excluded),
-                    style = UI.typo.c.style(
-                        color = account.color.value.toComposeColor().dynamicContrast()
-                    )
-                )
+private fun MonthLine(income: Double, expenses: Double, currency: String) {
+    val colors = revampColors()
+    Text(
+        text = buildAnnotatedString {
+            append("This month ")
+            withStyle(SpanStyle(color = colors.income)) {
+                append(AmountFormat.format(income, currency, signed = true, showDecimals = false))
             }
-        }
+            append(" · ")
+            withStyle(SpanStyle(color = colors.expense)) {
+                append(AmountFormat.format(-expenses, currency, showDecimals = false))
+            }
+        },
+        style = RevampType.caption,
+        color = colors.inkMuted,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
+}
 
-        Spacer(Modifier.height(4.dp))
-
-        BalanceRow(
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .clickableNoIndication(rememberInteractionSource()) {
-                    onBalanceClick()
-                },
-            textColor = contrastColor,
-            currency = currency,
-            balance = accountData.balance,
-
-            balanceFontSize = 30.sp,
-            currencyFontSize = 30.sp,
-
-            currencyUpfront = false
-        )
-
-        if (currency != baseCurrency && accountData.balanceBaseCurrency != null) {
-            BalanceRowMini(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .clickableNoIndication(rememberInteractionSource()) {
-                        onBalanceClick()
-                    }
-                    .testTag("baseCurrencyEquivalent"),
-                textColor = account.color.value.toComposeColor().dynamicContrast(),
-                currency = baseCurrency,
-                balance = accountData.balanceBaseCurrency!!,
-                currencyUpfront = false
-            )
-        }
-
-        Spacer(Modifier.height(16.dp))
+@Composable
+private fun AddAccountButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val colors = revampColors()
+    val shape = RoundedCornerShape(28.dp)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .clip(shape)
+            .border(2.dp, colors.primary, shape)
+            .background(colors.surface)
+            .clickable(role = Role.Button, onClick = onClick),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Icon(Icons.Filled.Add, contentDescription = null, tint = colors.onPrimaryTint)
+        Spacer(Modifier.width(8.dp))
+        Text(text = "Add account", style = RevampType.bodyStrong, color = colors.onPrimaryTint)
     }
+}
+
+@Suppress("MagicNumber")
+private fun previewState(compact: Boolean): AccountsState {
+    fun account(name: String, color: Color, currency: String = "INR", included: Boolean = true) = Account(
+        id = AccountId(UUID.nameUUIDFromBytes(name.toByteArray())),
+        name = NotBlankTrimmedString.unsafe(name),
+        color = ColorInt(color.toArgb()),
+        asset = AssetCode.unsafe(currency),
+        icon = null,
+        includeInBalance = included,
+        orderNum = 0.0,
+    )
+    return AccountsState(
+        baseCurrency = "INR",
+        accountsData = persistentListOf(
+            AccountData(account("HDFC Savings", Color(0xFF1F4FA8)), 98420.15, null, 7599.0, 85000.0),
+            AccountData(account("ICICI Credit Card", Color(0xFFA3410B)), -12859.75, null, 1231.0, 1100.0),
+            AccountData(account("Cash", Color(0xFF0B7A55)), 39000.0, null, 0.0, 0.0),
+            AccountData(
+                account = account("Travel USD", Color(0xFF6B4DFF), "USD", included = false),
+                balance = 120.0,
+                balanceBaseCurrency = 10020.0,
+                monthlyExpenses = 0.0,
+                monthlyIncome = 0.0,
+            ),
+        ),
+        totalBalanceWithExcluded = "134580.40",
+        totalBalanceWithExcludedText = "INR 1,34,580.40",
+        totalBalanceWithoutExcluded = "124560.40",
+        totalBalanceWithoutExcludedText = "INR 1,24,560.40",
+        reorderVisible = false,
+        compactAccountsModeEnabled = compact,
+        hideTotalBalance = false
+    )
 }
 
 @Preview
 @Composable
 private fun PreviewAccountsTabCompactModeDisabled(theme: Theme = Theme.LIGHT) {
     IvyWalletPreview(theme = theme) {
-        val acc1 = Account(
-            id = AccountId(UUID.randomUUID()),
-            name = NotBlankTrimmedString.unsafe("Phyre"),
-            color = ColorInt(Green.toArgb()),
-            asset = AssetCode.unsafe("USD"),
-            icon = null,
-            includeInBalance = true,
-            orderNum = 0.0,
-        )
-
-        val acc2 = Account(
-            id = AccountId(UUID.randomUUID()),
-            name = NotBlankTrimmedString.unsafe("DSK"),
-            color = ColorInt(GreenLight.toArgb()),
-            asset = AssetCode.unsafe("USD"),
-            icon = null,
-            includeInBalance = true,
-            orderNum = 0.0,
-        )
-
-        val acc3 = Account(
-            id = AccountId(UUID.randomUUID()),
-            name = NotBlankTrimmedString.unsafe("Revolut"),
-            color = ColorInt(Green.toArgb()),
-            asset = AssetCode.unsafe("USD"),
-            icon = IconAsset.unsafe("revolut"),
-            includeInBalance = true,
-            orderNum = 0.0,
-        )
-
-        val acc4 = Account(
-            id = AccountId(UUID.randomUUID()),
-            name = NotBlankTrimmedString.unsafe("Cash"),
-            color = ColorInt(Green.toArgb()),
-            asset = AssetCode.unsafe("USD"),
-            icon = IconAsset.unsafe("cash"),
-            includeInBalance = true,
-            orderNum = 0.0,
-        )
-        val state = AccountsState(
-            baseCurrency = "BGN",
-            accountsData = persistentListOf(
-                AccountData(
-                    account = acc1,
-                    balance = 2125.0,
-                    balanceBaseCurrency = null,
-                    monthlyExpenses = 920.0,
-                    monthlyIncome = 3045.0
-                ),
-                AccountData(
-                    account = acc2,
-                    balance = 12125.21,
-                    balanceBaseCurrency = null,
-                    monthlyExpenses = 1350.50,
-                    monthlyIncome = 8000.48
-                ),
-                AccountData(
-                    account = acc3,
-                    balance = 1200.0,
-                    balanceBaseCurrency = 1979.64,
-                    monthlyExpenses = 750.0,
-                    monthlyIncome = 1000.30
-                ),
-                AccountData(
-                    account = acc4,
-                    balance = 820.0,
-                    balanceBaseCurrency = null,
-                    monthlyExpenses = 340.0,
-                    monthlyIncome = 400.0
-                ),
-            ),
-            totalBalanceWithExcluded = "25.54",
-            totalBalanceWithExcludedText = "BGN 25.54",
-            totalBalanceWithoutExcluded = "25.54",
-            totalBalanceWithoutExcludedText = "BGN 25.54",
-            reorderVisible = false,
-            compactAccountsModeEnabled = false,
-            hideTotalBalance = false
-        )
-        UI(state = state)
+        UI(state = previewState(compact = false))
     }
 }
 
@@ -466,86 +372,7 @@ private fun PreviewAccountsTabCompactModeDisabled(theme: Theme = Theme.LIGHT) {
 @Composable
 private fun PreviewAccountsTabCompactModeEnabled(theme: Theme = Theme.LIGHT) {
     IvyWalletPreview(theme = theme) {
-        val acc1 = Account(
-            id = AccountId(UUID.randomUUID()),
-            name = NotBlankTrimmedString.unsafe("Phyre"),
-            color = ColorInt(Green.toArgb()),
-            asset = AssetCode.unsafe("USD"),
-            icon = null,
-            includeInBalance = true,
-            orderNum = 0.0,
-        )
-
-        val acc2 = Account(
-            id = AccountId(UUID.randomUUID()),
-            name = NotBlankTrimmedString.unsafe("DSK"),
-            color = ColorInt(GreenLight.toArgb()),
-            asset = AssetCode.unsafe("USD"),
-            icon = null,
-            includeInBalance = true,
-            orderNum = 0.0,
-        )
-
-        val acc3 = Account(
-            id = AccountId(UUID.randomUUID()),
-            name = NotBlankTrimmedString.unsafe("Revolut"),
-            color = ColorInt(Green.toArgb()),
-            asset = AssetCode.unsafe("USD"),
-            icon = IconAsset.unsafe("revolut"),
-            includeInBalance = true,
-            orderNum = 0.0,
-        )
-
-        val acc4 = Account(
-            id = AccountId(UUID.randomUUID()),
-            name = NotBlankTrimmedString.unsafe("Cash"),
-            color = ColorInt(Green.toArgb()),
-            asset = AssetCode.unsafe("USD"),
-            icon = IconAsset.unsafe("cash"),
-            includeInBalance = true,
-            orderNum = 0.0,
-        )
-        val state = AccountsState(
-            baseCurrency = "BGN",
-            accountsData = persistentListOf(
-                AccountData(
-                    account = acc1,
-                    balance = 2125.0,
-                    balanceBaseCurrency = null,
-                    monthlyExpenses = 920.0,
-                    monthlyIncome = 3045.0
-                ),
-                AccountData(
-                    account = acc2,
-                    balance = 12125.21,
-                    balanceBaseCurrency = null,
-                    monthlyExpenses = 1350.50,
-                    monthlyIncome = 8000.48
-                ),
-                AccountData(
-                    account = acc3,
-                    balance = 1200.0,
-                    balanceBaseCurrency = 1979.64,
-                    monthlyExpenses = 750.0,
-                    monthlyIncome = 1000.30
-                ),
-                AccountData(
-                    account = acc4,
-                    balance = 820.0,
-                    balanceBaseCurrency = null,
-                    monthlyExpenses = 340.0,
-                    monthlyIncome = 400.0
-                ),
-            ),
-            totalBalanceWithExcluded = "25.54",
-            totalBalanceWithExcludedText = "BGN 25.54",
-            totalBalanceWithoutExcluded = "25.54",
-            totalBalanceWithoutExcludedText = "BGN 25.54",
-            reorderVisible = false,
-            compactAccountsModeEnabled = true,
-            hideTotalBalance = false
-        )
-        UI(state = state)
+        UI(state = previewState(compact = true))
     }
 }
 

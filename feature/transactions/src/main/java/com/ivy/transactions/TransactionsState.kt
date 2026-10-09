@@ -6,6 +6,7 @@ import com.ivy.base.legacy.TransactionHistoryItem
 import com.ivy.data.model.Category
 import com.ivy.legacy.data.model.TimePeriod
 import com.ivy.legacy.datamodel.Account
+import com.ivy.transactions.revamp.TransactionDayGroupUi
 import com.ivy.wallet.ui.theme.modal.ChoosePeriodModalData
 import kotlinx.collections.immutable.ImmutableList
 
@@ -25,6 +26,8 @@ data class TransactionsState(
     val initWithTransactions: Boolean,
     val treatTransfersAsIncomeExpense: Boolean,
     val history: ImmutableList<TransactionHistoryItem>,
+    /** [history] as day groups for the revamped list. */
+    val historyGroups: ImmutableList<TransactionDayGroupUi>,
     val upcoming: ImmutableList<Transaction>,
     val upcomingExpanded: Boolean,
     val upcomingIncome: Double,

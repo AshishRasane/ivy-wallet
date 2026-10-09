@@ -4,6 +4,9 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import com.ivy.design.revamp.RevampAmoled
+import com.ivy.design.revamp.RevampDark
+import com.ivy.design.revamp.RevampLight
 import com.ivy.design.system.colors.IvyColors
 
 @Composable
@@ -19,7 +22,7 @@ fun IvyMaterial3Theme(
 }
 
 private fun ivyLightColorScheme(): ColorScheme = ColorScheme(
-    primary = IvyColors.Purple.primary,
+    primary = RevampLight.primary,
     onPrimary = IvyColors.White,
     primaryContainer = IvyColors.Purple.light,
     onPrimaryContainer = IvyColors.White,
@@ -38,10 +41,10 @@ private fun ivyLightColorScheme(): ColorScheme = ColorScheme(
     errorContainer = IvyColors.Red.light,
     onErrorContainer = IvyColors.White,
 
-    background = IvyColors.White,
-    onBackground = IvyColors.Black,
-    surface = IvyColors.White,
-    onSurface = IvyColors.Black,
+    background = RevampLight.ground,
+    onBackground = RevampLight.ink,
+    surface = RevampLight.ground,
+    onSurface = RevampLight.ink,
     surfaceVariant = IvyColors.ExtraLightGray,
     onSurfaceVariant = IvyColors.Black,
     surfaceTint = IvyColors.Black,
@@ -54,7 +57,7 @@ private fun ivyLightColorScheme(): ColorScheme = ColorScheme(
 )
 
 private fun ivyDarkColorScheme(isTrueBlack: Boolean): ColorScheme = ColorScheme(
-    primary = IvyColors.Purple.primary,
+    primary = RevampDark.primary,
     onPrimary = IvyColors.White,
     primaryContainer = IvyColors.Purple.light,
     onPrimaryContainer = IvyColors.White,
@@ -73,10 +76,10 @@ private fun ivyDarkColorScheme(isTrueBlack: Boolean): ColorScheme = ColorScheme(
     errorContainer = IvyColors.Red.light,
     onErrorContainer = IvyColors.White,
 
-    background = if (isTrueBlack) IvyColors.TrueBlack else IvyColors.Black,
-    onBackground = IvyColors.White,
-    surface = if (isTrueBlack) IvyColors.TrueBlack else IvyColors.Black,
-    onSurface = IvyColors.White,
+    background = if (isTrueBlack) RevampAmoled.ground else RevampDark.ground,
+    onBackground = RevampDark.ink,
+    surface = if (isTrueBlack) RevampAmoled.ground else RevampDark.ground,
+    onSurface = RevampDark.ink,
     surfaceVariant = IvyColors.ExtraDarkGray,
     onSurfaceVariant = IvyColors.White,
     surfaceTint = IvyColors.White,
