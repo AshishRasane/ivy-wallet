@@ -409,7 +409,12 @@ class EditTransactionViewModel @Inject constructor(
         customExchangeRateState = if (transaction.toAccountId == null) {
             CustomExchangeRateState()
         } else {
-            val exchangeRate = transaction.toAmount / transaction.amount
+            // a new transfer opened with only its accounts (e.g. a top-up) has no amount yet
+            val exchangeRate = if (transaction.amount.signum() == 0) {
+                BigDecimal.ONE
+            } else {
+                transaction.toAmount / transaction.amount
+            }
             val toAccountCurrency =
                 accounts.find { acc -> acc.id == transaction.toAccountId }?.currency
             CustomExchangeRateState(

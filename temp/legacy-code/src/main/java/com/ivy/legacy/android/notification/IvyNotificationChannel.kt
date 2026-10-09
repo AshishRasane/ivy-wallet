@@ -34,6 +34,13 @@ enum class IvyNotificationChannel(
         description = "Alerts when the daily automatic backup can't be saved.",
         importance = NotificationManager.IMPORTANCE_DEFAULT,
         bypassDnd = false
+    ),
+    LOW_BALANCE(
+        channelId = "low_balance",
+        channelName = "Low balance",
+        description = "Alerts when an account's balance drops below the amount you set.",
+        importance = NotificationManager.IMPORTANCE_HIGH,
+        bypassDnd = false
     );
 
     @SuppressLint("WrongConstant")

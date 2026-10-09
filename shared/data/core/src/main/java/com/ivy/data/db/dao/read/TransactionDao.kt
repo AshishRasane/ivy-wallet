@@ -4,11 +4,16 @@ import androidx.room.Dao
 import androidx.room.Query
 import com.ivy.base.model.TransactionType
 import com.ivy.data.db.entity.TransactionEntity
+import kotlinx.coroutines.flow.Flow
 import java.time.Instant
 import java.util.UUID
 
 @Dao
 interface TransactionDao {
+    /** Emits whenever the transactions table changes (Room re-runs it on every write). */
+    @Query("SELECT COUNT(*) FROM transactions")
+    fun observeChanges(): Flow<Int>
+
     @Query("SELECT * FROM transactions WHERE isDeleted = 0 ORDER BY dateTime DESC, dueDate ASC")
     suspend fun findAll(): List<TransactionEntity>
 

@@ -48,4 +48,6 @@ data class TransactionsState(
     val lastBillPaymentAccountId: AccountId?,
     /** The account counts as an investment; null when this isn't an account's screen. */
     val isInvestment: Boolean?,
+    /** Alert when the account's balance is below this; null when off. */
+    val lowBalanceThreshold: Double?,
 )

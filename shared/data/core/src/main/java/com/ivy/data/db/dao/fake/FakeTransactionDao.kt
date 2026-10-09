@@ -4,6 +4,8 @@ import com.ivy.base.model.TransactionType
 import com.ivy.data.db.dao.read.TransactionDao
 import com.ivy.data.db.dao.write.WriteTransactionDao
 import com.ivy.data.db.entity.TransactionEntity
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import org.jetbrains.annotations.VisibleForTesting
 import java.time.Instant
 import java.util.UUID
@@ -11,6 +13,8 @@ import java.util.UUID
 @VisibleForTesting
 class FakeTransactionDao : TransactionDao, WriteTransactionDao {
     private val items = mutableListOf<TransactionEntity>()
+
+    override fun observeChanges(): Flow<Int> = flowOf(items.size)
 
     override suspend fun findAll(): List<TransactionEntity> {
         return items

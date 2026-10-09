@@ -10,17 +10,22 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import com.ivy.design.revamp.AmountFormat
 import com.ivy.design.revamp.RevampCircleButton
@@ -219,6 +224,8 @@ fun BoxWithConstraintsScope.TransactionsScreen(screen: TransactionsScreen) {
         lastBillPaymentAccountId = uiState.lastBillPaymentAccountId,
         isInvestment = uiState.isInvestment,
         onSetInvestment = { viewModel.onEvent(TransactionsEvent.SetInvestment(it)) },
+        lowBalanceThreshold = uiState.lowBalanceThreshold,
+        onSetLowBalanceAlert = { viewModel.onEvent(TransactionsEvent.SetLowBalanceAlert(it)) },
     )
 }
 
@@ -252,6 +259,8 @@ private fun BoxWithConstraintsScope.UI(
     lastBillPaymentAccountId: AccountId?,
     isInvestment: Boolean?,
     onSetInvestment: (Boolean) -> Unit,
+    lowBalanceThreshold: Double?,
+    onSetLowBalanceAlert: (Double?) -> Unit,
 
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
@@ -376,6 +385,7 @@ private fun BoxWithConstraintsScope.UI(
                 inBaseCurrency = balanceBaseCurrency
                     ?.takeIf { account != null && currency != baseCurrency }
                     ?.let { AmountFormat.format(it, baseCurrency) },
+                currency = currency,
                 income = AmountFormat.format(income, currency),
                 expenses = AmountFormat.format(expenses, currency),
                 onBalanceClick = { editAccount(true) },
@@ -396,6 +406,8 @@ private fun BoxWithConstraintsScope.UI(
                 },
                 isInvestment = isInvestment,
                 onSetInvestment = onSetInvestment,
+                lowBalanceThreshold = lowBalanceThreshold,
+                onSetLowBalanceAlert = onSetLowBalanceAlert,
                 onIncomeClick = { openPieChart(TransactionType.INCOME) },
                 onExpensesClick = { openPieChart(TransactionType.EXPENSE) },
                 onAdd = { type ->
@@ -599,6 +611,7 @@ private fun SummaryCard(
     excluded: Boolean,
     headline: String,
     inBaseCurrency: String?,
+    currency: String,
     income: String,
     expenses: String,
     onBalanceClick: () -> Unit,
@@ -608,6 +621,8 @@ private fun SummaryCard(
     /** null hides the switch (not an account) */
     isInvestment: Boolean?,
     onSetInvestment: (Boolean) -> Unit,
+    lowBalanceThreshold: Double?,
+    onSetLowBalanceAlert: (Double?) -> Unit,
     onIncomeClick: () -> Unit,
     onExpensesClick: () -> Unit,
     onAdd: (TransactionType) -> Unit,
@@ -674,6 +689,7 @@ private fun SummaryCard(
         }
         if (isInvestment != null) {
             InvestmentSwitch(checked = isInvestment, onCheckedChange = onSetInvestment)
+            LowBalanceAlertRow(threshold = lowBalanceThreshold, currency = currency, onSet = onSetLowBalanceAlert)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             AddButton(modifier = Modifier.weight(1f), label = "Add expense") { onAdd(TransactionType.EXPENSE) }
@@ -722,6 +738,77 @@ private fun AddButton(label: String, modifier: Modifier = Modifier, onClick: () 
         Spacer(Modifier.width(6.dp))
         Text(text = label, style = RevampType.body, color = colors.onPrimaryTint)
     }
+}
+
+/** "Low balance alert · Below ₹2,000"; tapping it asks for the amount. */
+@Composable
+private fun LowBalanceAlertRow(threshold: Double?, currency: String, onSet: (Double?) -> Unit) {
+    val colors = revampColors()
+    var editing by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClickLabel = "Set low balance alert") { editing = true },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = "Low balance alert", style = RevampType.body, color = colors.ink)
+            Text(text = "Notify me when the balance drops below", style = RevampType.label, color = colors.inkMuted)
+        }
+        Text(
+            text = threshold?.let { AmountFormat.format(it, currency, showDecimals = false) } ?: "Off",
+            style = RevampType.bodyStrong,
+            color = if (threshold != null) colors.onPrimaryTint else colors.inkMuted,
+        )
+    }
+    if (editing) {
+        LowBalanceAlertDialog(
+            initial = threshold,
+            currency = currency,
+            onSave = {
+                onSet(it)
+                editing = false
+            },
+            onDismiss = { editing = false },
+        )
+    }
+}
+
+@Composable
+private fun LowBalanceAlertDialog(
+    initial: Double?,
+    currency: String,
+    onSave: (Double?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var text by remember { mutableStateOf(initial?.toBigDecimal()?.stripTrailingZeros()?.toPlainString().orEmpty()) }
+    val amount = text.toDoubleOrNull()?.takeIf { it > 0 }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Low balance alert") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Get a notification when the balance drops below this amount.")
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { new -> text = new.filter { it.isDigit() || it == '.' } },
+                    singleLine = true,
+                    label = { Text("Amount ($currency)") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = amount != null, onClick = { onSave(amount) }) { Text("Save") }
+        },
+        dismissButton = {
+            if (initial != null) {
+                TextButton(onClick = { onSave(null) }) { Text("Turn off") }
+            } else {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+            }
+        },
+    )
 }
 
 @Composable
@@ -848,6 +935,8 @@ private fun BoxWithConstraintsScope.Preview_empty() {
             lastBillPaymentAccountId = null,
             isInvestment = false,
             onSetInvestment = {},
+            lowBalanceThreshold = null,
+            onSetLowBalanceAlert = {},
         )
     }
 }
@@ -898,6 +987,8 @@ private fun BoxWithConstraintsScope.Preview_crypto() {
             lastBillPaymentAccountId = null,
             isInvestment = false,
             onSetInvestment = {},
+            lowBalanceThreshold = null,
+            onSetLowBalanceAlert = {},
         )
     }
 }
@@ -977,6 +1068,8 @@ private fun BoxWithConstraintsScope.Preview_empty_upcoming() {
             lastBillPaymentAccountId = null,
             isInvestment = false,
             onSetInvestment = {},
+            lowBalanceThreshold = null,
+            onSetLowBalanceAlert = {},
         )
     }
 }

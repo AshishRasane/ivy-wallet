@@ -18,6 +18,7 @@ import com.ivy.base.model.TransactionType
 import com.ivy.base.time.TimeConverter
 import com.ivy.base.time.TimeProvider
 import com.ivy.data.datasource.InvestmentAccountsDataSource
+import com.ivy.data.datasource.LowBalanceAlertsDataSource
 import com.ivy.data.db.dao.read.AccountDao
 import com.ivy.data.db.dao.write.WritePlannedPaymentRuleDao
 import com.ivy.data.model.AccountId
@@ -104,6 +105,7 @@ class TransactionsViewModel @Inject constructor(
     private val timeConverter: TimeConverter,
     private val features: Features,
     private val investmentAccounts: InvestmentAccountsDataSource,
+    private val lowBalanceAlerts: LowBalanceAlertsDataSource,
 ) : ComposeViewModel<TransactionsState, TransactionsEvent>() {
 
     private val period = mutableStateOf(ivyContext.selectedPeriod)
@@ -176,6 +178,7 @@ class TransactionsViewModel @Inject constructor(
             showAccountColorsInTransactions = getShouldShowAccountSpecificColorInTransactions(),
             lastBillPaymentAccountId = lastBillPaymentAccountId.value,
             isInvestment = getIsInvestment(),
+            lowBalanceThreshold = getLowBalanceThreshold(),
         )
     }
 
@@ -275,6 +278,13 @@ class TransactionsViewModel @Inject constructor(
     }
 
     @Composable
+    private fun getLowBalanceThreshold(): Double? {
+        val accountId = account.value?.id ?: return null
+        val thresholds by lowBalanceAlerts.thresholds.collectAsState(initial = emptyMap())
+        return thresholds[AccountId(accountId)]
+    }
+
+    @Composable
     private fun getIsInvestment(): Boolean? {
         val accountId = account.value?.id ?: return null
         val ids by investmentAccounts.ids.collectAsState(initial = emptySet())
@@ -340,6 +350,7 @@ class TransactionsViewModel @Inject constructor(
         return choosePeriodModal.value
     }
 
+    @Suppress("CyclomaticComplexMethod") // one branch per event
     override fun onEvent(event: TransactionsEvent) {
         when (event) {
             is TransactionsEvent.Delete -> delete(event.screen)
@@ -369,6 +380,9 @@ class TransactionsViewModel @Inject constructor(
             is TransactionsEvent.SetSkipAllModalVisible -> setSkipAllModalVisible(event.visible)
             is TransactionsEvent.OnDeleteModal1Visible -> setDeleteModal1Visible(event.delete)
             is TransactionsEvent.OnChoosePeriodModalData -> setChoosePeriodModalData(event.data)
+            is TransactionsEvent.SetLowBalanceAlert -> account.value?.id?.let { id ->
+                viewModelScope.launch { lowBalanceAlerts.setThreshold(AccountId(id), event.threshold) }
+            }
             is TransactionsEvent.SetInvestment -> account.value?.id?.let { id ->
                 viewModelScope.launch { investmentAccounts.set(AccountId(id), event.isInvestment) }
             }
