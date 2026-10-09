@@ -35,7 +35,9 @@ data class EditTransactionViewState(
     val backgroundProcessingStarted: Boolean,
     val customExchangeRateState: CustomExchangeRateState,
     val tags: ImmutableList<Tag>,
-    val transactionAssociatedTags: ImmutableList<TagId>
+    val transactionAssociatedTags: ImmutableList<TagId>,
+    /** "Standard keypad layout" feature: 1-2-3 on top instead of 7-8-9. */
+    val standardKeypad: Boolean,
 )
 
 sealed interface EditTransactionViewEvent {

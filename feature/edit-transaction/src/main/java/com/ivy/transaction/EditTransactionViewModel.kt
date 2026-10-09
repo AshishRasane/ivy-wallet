@@ -214,7 +214,8 @@ class EditTransactionViewModel @Inject constructor(
             backgroundProcessingStarted = getBackgroundProcessingStarted(),
             customExchangeRateState = getCustomExchangeRateState(),
             tags = getTags(),
-            transactionAssociatedTags = getTransactionAssociatedTags()
+            transactionAssociatedTags = getTransactionAssociatedTags(),
+            standardKeypad = features.standardKeypadLayout.asEnabledState(),
         )
     }
 
@@ -465,11 +466,12 @@ class EditTransactionViewModel @Inject constructor(
     }
 
     private fun onAmountChanged(newAmount: Double) {
+        // Update synchronously so a Save sent right after uses the new amount.
+        loadedTransaction = loadedTransaction().copy(
+            amount = newAmount.toBigDecimal()
+        )
+        amount = newAmount
         viewModelScope.launch {
-            loadedTransaction = loadedTransaction().copy(
-                amount = newAmount.toBigDecimal()
-            )
-            amount = newAmount
             updateCustomExchangeRateState(amt = newAmount)
 
             saveIfEditMode()
