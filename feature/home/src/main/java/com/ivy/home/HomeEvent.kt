@@ -3,6 +3,7 @@ package com.ivy.home
 import com.ivy.base.legacy.Transaction
 import com.ivy.home.customerjourney.CustomerJourneyCardModel
 import com.ivy.legacy.data.model.TimePeriod
+import com.ivy.transactions.revamp.TransactionRowUi
 
 sealed interface HomeEvent {
     data class SetUpcomingExpanded(val expanded: Boolean) : HomeEvent
@@ -28,6 +29,8 @@ sealed interface HomeEvent {
     data class DismissCustomerJourneyCard(val card: CustomerJourneyCardModel) : HomeEvent
 
     data object ReviewSmsTransactions : HomeEvent
+
+    data class OpenTransaction(val row: TransactionRowUi) : HomeEvent
 
     data object SelectNextMonth : HomeEvent
     data object SelectPreviousMonth : HomeEvent

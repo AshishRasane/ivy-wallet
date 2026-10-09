@@ -9,6 +9,7 @@ import com.ivy.legacy.data.BufferInfo
 import com.ivy.legacy.data.LegacyDueSection
 import com.ivy.legacy.data.model.TimePeriod
 import com.ivy.wallet.domain.pure.data.IncomeExpensePair
+import com.ivy.transactions.revamp.TransactionDayGroupUi
 import kotlinx.collections.immutable.ImmutableList
 import java.math.BigDecimal
 
@@ -37,4 +38,6 @@ data class HomeState(
     val shouldShowAccountSpecificColorInTransactions: Boolean,
     /** Bank SMS transactions waiting to be added or ignored. */
     val pendingSmsCount: Int,
+    /** The latest transactions of the period, grouped by day. */
+    val recent: ImmutableList<TransactionDayGroupUi>,
 )

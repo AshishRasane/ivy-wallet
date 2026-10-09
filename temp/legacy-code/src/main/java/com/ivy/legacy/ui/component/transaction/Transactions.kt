@@ -107,6 +107,41 @@ fun LazyListScope.transactions(
     )
 }
 
+/**
+ * Only the upcoming and overdue planned payments, for screens that show
+ * their own transaction history (the revamped Home).
+ */
+@Suppress("LongParameterList")
+fun LazyListScope.dueSections(
+    baseData: AppBaseData,
+    upcoming: LegacyDueSection?,
+    overdue: LegacyDueSection?,
+    shouldShowAccountSpecificColorInTransactions: Boolean,
+    onPayOrGet: (Transaction) -> Unit,
+    setUpcomingExpanded: (Boolean) -> Unit,
+    setOverdueExpanded: (Boolean) -> Unit,
+    onSkipTransaction: (Transaction) -> Unit,
+    onSkipAllTransactions: (List<Transaction>) -> Unit,
+) {
+    upcomingSection(
+        baseData = baseData,
+        upcoming = upcoming,
+        shouldShowAccountSpecificColorInTransactions = shouldShowAccountSpecificColorInTransactions,
+        onPayOrGet = onPayOrGet,
+        onSkipTransaction = onSkipTransaction,
+        setExpanded = setUpcomingExpanded
+    )
+    overdueSection(
+        baseData = baseData,
+        overdue = overdue,
+        onPayOrGet = onPayOrGet,
+        onSkipTransaction = onSkipTransaction,
+        onSkipAllTransactions = onSkipAllTransactions,
+        shouldShowAccountSpecificColorInTransactions = shouldShowAccountSpecificColorInTransactions,
+        setExpanded = setOverdueExpanded
+    )
+}
+
 private fun LazyListScope.upcomingSection(
     baseData: AppBaseData,
 

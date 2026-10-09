@@ -1,5 +1,10 @@
 package com.ivy.home
 
+import com.ivy.data.repository.AccountRepository
+import com.ivy.data.repository.TransactionRepository
+import com.ivy.navigation.EditTransactionScreen
+import com.ivy.transactions.revamp.TransactionDayGroupUi
+import com.ivy.transactions.revamp.TransactionRows
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import com.ivy.data.db.dao.SmsDao
@@ -98,6 +103,8 @@ class HomeViewModel @Inject constructor(
     private val timeConverter: TimeConverter,
     private val features: Features,
     private val smsDao: SmsDao,
+    private val transactionRepository: TransactionRepository,
+    private val accountRepository: AccountRepository,
 ) : ComposeViewModel<HomeState, HomeEvent>() {
     private var currentTheme by mutableStateOf(Theme.AUTO)
     private var name by mutableStateOf("")
@@ -110,6 +117,7 @@ class HomeViewModel @Inject constructor(
         )
     )
     private var history by mutableStateOf<ImmutableList<TransactionHistoryItem>>(persistentListOf())
+    private var recent by mutableStateOf<ImmutableList<TransactionDayGroupUi>>(persistentListOf())
     private var stats by mutableStateOf(IncomeExpensePair.zero())
     private var balance by mutableStateOf(BigDecimal.ZERO)
     private var buffer by mutableStateOf(
@@ -161,6 +169,33 @@ class HomeViewModel @Inject constructor(
             hideIncome = getHideIncome(),
             shouldShowAccountSpecificColorInTransactions = getShouldShowAccountSpecificColorInTransactions(),
             pendingSmsCount = getPendingSmsCount(),
+            recent = getRecent(),
+        )
+    }
+
+    @Composable
+    private fun getRecent(): ImmutableList<TransactionDayGroupUi> {
+        // reloads whenever the history is reloaded (start, period change, data changes)
+        LaunchedEffect(history) {
+            recent = loadRecent()
+        }
+        return recent
+    }
+
+    private suspend fun loadRecent(): ImmutableList<TransactionDayGroupUi> {
+        val range = period.toRange(
+            startDateOfMonth = ivyContext.startDayOfMonth,
+            timeConverter = timeConverter,
+            timeProvider = timeProvider,
+        ).toUTCCloseTimeRange()
+        return TransactionRows.group(
+            transactions = transactionRepository.findAllBetween(range.from, range.to),
+            accounts = accountRepository.findAll().associateBy { it.id },
+            categories = categoryRepository.findAll().associateBy { it.id },
+            baseCurrency = baseData.baseCurrency,
+            zone = timeProvider.getZoneId(),
+            today = timeProvider.localDateNow(),
+            limit = RECENT_LIMIT,
         )
     }
 
@@ -264,6 +299,9 @@ class HomeViewModel @Inject constructor(
                 HomeEvent.SwitchTheme -> switchTheme()
                 is HomeEvent.DismissCustomerJourneyCard -> dismissCustomerJourneyCard(event.card)
                 HomeEvent.ReviewSmsTransactions -> nav.navigateTo(SmsReviewScreen)
+                is HomeEvent.OpenTransaction -> nav.navigateTo(
+                    EditTransactionScreen(initialTransactionId = event.row.id, type = event.row.type)
+                )
                 is HomeEvent.SetExpanded -> setExpanded(event.expanded)
             }
         }
@@ -540,11 +578,18 @@ class HomeViewModel @Inject constructor(
     }
 
     private suspend fun setPeriod(period: TimePeriod) {
+        // shared with the Transactions tab
+        ivyContext.updateSelectedPeriodInMemory(period)
         reload(period)
     }
 
     @JvmName("setExpandedMethod")
     private fun setExpanded(expanded: Boolean) {
         this.expanded = expanded
+    }
+
+    private companion object {
+        /** Transactions shown under "Recent" on Home; the Transactions tab shows all. */
+        const val RECENT_LIMIT = 6
     }
 }
