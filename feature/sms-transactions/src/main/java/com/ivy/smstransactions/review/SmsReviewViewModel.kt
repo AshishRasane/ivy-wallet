@@ -12,6 +12,7 @@ import com.ivy.data.db.entity.SmsTransactionEntity
 import com.ivy.navigation.EditTransactionScreen
 import com.ivy.navigation.Navigation
 import com.ivy.smstransactions.SmsTransactionNotifier
+import com.ivy.smstransactions.store.accountLabel
 import com.ivy.smstransactions.store.SmsSuggestion
 import com.ivy.smstransactions.store.SmsTransactionStore
 import com.ivy.smstransactions.store.toPrefill
@@ -127,7 +128,7 @@ class SmsReviewViewModel @Inject constructor(
             },
             amount = sign + SmsTransactionNotifier.formatInr(amount),
             isIncome = isIncome,
-            details = listOfNotNull(formatTime(dateTime), bank, accountEnding?.let { "A/c XX$it" })
+            details = listOfNotNull(formatTime(dateTime), bank, accountLabel(accountEnding))
                 .joinToString(" · "),
             suggestion = if (isTransfer) {
                 "Transfer · " + listOfNotNull(suggestion.accountName, suggestion.toAccountName ?: "choose account")

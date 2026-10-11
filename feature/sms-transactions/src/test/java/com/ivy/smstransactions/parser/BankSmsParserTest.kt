@@ -76,6 +76,50 @@ class BankSmsParserTest {
             )
         ),
 
+        // Scapia (Federal Bank) cards: "txn of" without "debited", and no card digits
+        ScapiaRewards(
+            sender = "JD-FEDSCP-S",
+            body = "Your txn of ₹973.00 at Sharma General Store Pune on your Scapia Federal Visa credit card " +
+                "earned you 10% rewards! Not you? Call 18000000000. - Federal Bank",
+            expected = trn(
+                type = EXPENSE,
+                amount = 973.0,
+                counterparty = "Sharma General Store Pune",
+                account = "Scapia Federal Visa",
+                bank = "Federal Bank",
+                ref = null,
+                date = null,
+            )
+        ),
+        ScapiaSuccessful(
+            sender = "JD-FEDSCP-S",
+            body = "Hi! Your txn of ₹1,855.70 at Food Court Stall 20 Singapore S on your Scapia Federal Visa " +
+                "credit card was successful. Not you? Go to Scapia support on the app.- Federal Bank",
+            expected = trn(
+                type = EXPENSE,
+                amount = 1855.70,
+                counterparty = "Food Court Stall 20 Singapore S",
+                account = "Scapia Federal Visa",
+                bank = "Federal Bank",
+                ref = null,
+                date = null,
+            )
+        ),
+        ScapiaReversed(
+            sender = "JD-FEDSCP-S",
+            body = "Hi! Your txn of ₹298.77 at Sentosa Express Singapore on your Scapia Federal Visa credit card " +
+                "has been reversed. - Federal Bank",
+            expected = trn(
+                type = INCOME,
+                amount = 298.77,
+                counterparty = null,
+                account = "Scapia Federal Visa",
+                bank = "Federal Bank",
+                ref = null,
+                date = null,
+            )
+        ),
+
         // investments: money sent to an investment app is a transfer to the investment account
         KuveraHdfcUpi(
             sender = "VM-HDFCBK-S",

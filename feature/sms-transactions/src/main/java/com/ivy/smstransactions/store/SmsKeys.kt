@@ -22,9 +22,12 @@ object SmsKeys {
                 .take(HASH_HEX_LENGTH)
         }
 
-    /** "HDFC Bank" + "1234" -> "hdfc bank|1234". Null when the SMS has no account ending. */
+    /**
+     * "HDFC Bank" + "1234" -> "hdfc bank|1234"; a card name instead of digits ("Scapia Federal Visa")
+     * is lowercased too. Null when the SMS has no account ending.
+     */
     fun accountKey(bank: String?, accountEnding: String?): String? =
-        accountEnding?.let { "${bank.orEmpty().lowercase()}|$it" }
+        accountEnding?.let { "${bank.orEmpty().lowercase()}|${it.lowercase()}" }
 
     /**
      * "SWIGGY", "Swiggy " -> "swiggy"; "zomato@paytm" -> "zomato".

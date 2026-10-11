@@ -41,7 +41,8 @@ class BankSmsParser @Inject constructor() {
             },
             amount = amount,
             counterparty = detectCounterparty(text, direction),
-            accountEnding = ACCOUNT_ENDING.find(text)?.groupValues?.get(1)?.takeLast(ACCOUNT_ENDING_DIGITS),
+            accountEnding = ACCOUNT_ENDING.find(text)?.groupValues?.get(1)?.takeLast(ACCOUNT_ENDING_DIGITS)
+                ?: cardName(text),
             bank = detectBank(sender, text),
             reference = detectReference(text),
             date = detectDate(text),
@@ -68,12 +69,18 @@ class BankSmsParser @Inject constructor() {
     private fun isCardBillPayment(text: String): Boolean =
         CARD_BILL_PAYMENT.containsMatchIn(text) && !CARD_SPEND.containsMatchIn(text)
 
+    /** Cards SMS without the last digits name the card: "on your Scapia Federal Visa credit card". */
+    private fun cardName(text: String): String? =
+        CARD_NAME.find(text)?.groupValues?.get(1)?.trim()?.takeIf { it.length in 2..MAX_COUNTERPARTY_LENGTH }
+
     private fun detectType(text: String): TransactionType? {
         // The first keyword wins: "A/c X debited ... & A/c Y credited" is a debit for the user.
         val debitAt = DEBIT.find(text)?.range?.first ?: Int.MAX_VALUE
         val creditAt = CREDIT.find(text)?.range?.first ?: Int.MAX_VALUE
         return when {
-            debitAt == Int.MAX_VALUE && creditAt == Int.MAX_VALUE -> null
+            // "Your txn of Rs 973 at SHOP on your card": a purchase, unless it also says refunded/reversed
+            debitAt == Int.MAX_VALUE && creditAt == Int.MAX_VALUE ->
+                TransactionType.EXPENSE.takeIf { PURCHASE.containsMatchIn(text) }
             debitAt < creditAt -> TransactionType.EXPENSE
             else -> TransactionType.INCOME
         }
@@ -209,6 +216,10 @@ class BankSmsParser @Inject constructor() {
             "\\b(debited|debit of|spent|paid|sent|withdrawn|withdrawal|purchase|deducted|" +
                 "transferred to|used for|for using)\\b"
         )
+        private val PURCHASE = regex("\\b(?:txn|transaction) of\\b")
+
+        // "on your Scapia Federal Visa credit card" -> "Scapia Federal Visa"
+        private val CARD_NAME = regex("\\bon your ([a-z0-9][a-z0-9 &.-]*?) (?:credit|debit) card\\b")
         private val CREDIT = regex("\\b(credited|received|deposited|refund|refunded|reversed|cashback of)\\b")
 
         private const val NUMBER = "(\\d[\\d,]*(?:\\.\\d{1,2})?)"

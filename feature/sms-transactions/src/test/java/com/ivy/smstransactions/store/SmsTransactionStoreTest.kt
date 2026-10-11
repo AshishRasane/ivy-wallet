@@ -130,6 +130,15 @@ class SmsTransactionStoreTest {
     }
 
     @Test
+    fun `saving an ordinary shop as an expense stores nothing about transfers`() = runTest {
+        // When
+        store.markAdded(sms(TransactionType.EXPENSE, "SWIGGY").id, SLICE, categoryId = null, toAccountId = null)
+
+        // Then - only the bank account link
+        links.keys shouldBe setOf("slice|4321")
+    }
+
+    @Test
     fun `a shop whose name looks like an account isn't a transfer`() = runTest {
         // "Coin Laundry" isn't an investment app, even though an account is called "Coin"
         store.suggestion(sms(TransactionType.EXPENSE, "Coin Laundry")).type shouldBe TransactionType.EXPENSE

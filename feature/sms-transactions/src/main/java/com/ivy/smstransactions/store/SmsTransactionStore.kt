@@ -153,8 +153,11 @@ class SmsTransactionStore @Inject constructor(
         if (payee != null && (entity.type != TransactionType.INCOME || incomingTransfer)) {
             if (payeeAccountId != null) {
                 dao.saveAccountLink(SmsAccountLinkEntity(key = payee, accountId = payeeAccountId, updatedAt = now))
-            } else {
-                // saved as an expense this time: stop suggesting a transfer for this merchant
+            } else if (entity.type == TransactionType.TRANSFER ||
+                InvestmentPayees.matches(entity.counterparty) ||
+                dao.findAccountLink(payee) != null
+            ) {
+                // saved as an expense although it would be suggested as a transfer: stop suggesting it
                 dao.saveAccountLink(SmsAccountLinkEntity(key = payee, accountId = NOT_A_TRANSFER, updatedAt = now))
             }
         }

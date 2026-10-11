@@ -30,6 +30,7 @@ class SmsKeysTest {
         SmsKeys.accountKey("HDFC Bank", "1234") shouldBe "hdfc bank|1234"
         SmsKeys.accountKey(null, "1234") shouldBe "|1234"
         SmsKeys.accountKey("HDFC Bank", null) shouldBe null
+        SmsKeys.accountKey("Federal Bank", "Scapia Federal Visa") shouldBe "federal bank|scapia federal visa"
     }
 
     @Test

@@ -7,6 +7,7 @@ import androidx.core.app.NotificationCompat
 import com.ivy.base.model.TransactionType
 import com.ivy.data.db.entity.SmsTransactionEntity
 import com.ivy.domain.AppStarter
+import com.ivy.smstransactions.store.accountLabel
 import com.ivy.smstransactions.store.QuickAdded
 import com.ivy.smstransactions.store.RecordedSmsTransaction
 import com.ivy.smstransactions.store.SmsSuggestion
@@ -109,7 +110,7 @@ class SmsTransactionNotifier @Inject constructor(
         appStarter.getAddTransactionIntent(type = suggestion.type, prefill = trn.toPrefill(suggestion))
 
     private fun contentText(trn: SmsTransactionEntity, suggestion: SmsSuggestion): String {
-        val source = listOfNotNull(trn.bank, trn.accountEnding?.let { "A/c XX$it" })
+        val source = listOfNotNull(trn.bank, accountLabel(trn.accountEnding))
         return (learned(suggestion).ifEmpty { source } + "Tap to add").joinToString(" · ")
     }
 

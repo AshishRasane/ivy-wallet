@@ -7,7 +7,7 @@ import com.ivy.domain.TransactionPrefill
 fun SmsTransactionEntity.prefillDescription(): String = listOfNotNull(
     "Added from SMS",
     bank,
-    accountEnding?.let { "A/c XX$it" },
+    accountLabel(accountEnding),
     reference?.let { "Ref $it" },
 ).joinToString(" · ")
 
